@@ -12,13 +12,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Fetch mihomo core (pinned v1.19.33, submodule URL is broken)
-        run: |
-          mkdir -p core/src/foss/golang/clash
-          curl -sL -o /tmp/mihomo.zip https://proxy.golang.org/github.com/metacubex/mihomo/@v/v1.19.33.zip
-          unzip -q -o /tmp/mihomo.zip -d /tmp/mihomo-extract
-          cp -a /tmp/mihomo-extract/github.com/metacubex/mihomo@v1.19.33/. core/src/foss/golang/clash/
-          ls core/src/foss/golang/clash/go.mod
+            - name: Checkout submodules
+        run: git submodule update --init --recursive --force
 
       - name: Setup Java
         uses: actions/setup-java@v5
