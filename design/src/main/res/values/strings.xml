@@ -148,6 +148,21 @@
     <string name="access_control_mode">Access Control Mode</string>
     <string name="access_control_packages">Access Control Packages</string>
     <string name="access_control_packages_summary">Configure access permission for apps</string>
+    <!-- FEATURE-1 BEGIN: app blocklist page -->
+    <string name="blocked_packages">应用拉黑</string>
+    <string name="blocked_packages_summary">阻止选中的应用联网</string>
+    <!-- FEATURE-1 END -->
+    <!-- FEATURE-2 BEGIN: per-app designated node page -->
+    <string name="app_node_packages">指定节点</string>
+    <string name="app_node_packages_summary">为选中的应用指定走哪个节点</string>
+    <string name="app_node_clear">清除指定（跟随默认）</string>
+    <string name="app_node_not_specified">未指定</string>
+    <string name="app_node_blocked_first">已拉黑，拉黑优先</string>
+    <!-- FEATURE-2 END -->
+    <!-- FEATURE-4 BEGIN: cross-provider fastest group toggle -->
+    <string name="global_auto">全局自动（跨订阅组选最快）</string>
+    <string name="global_auto_summary">自动把全部订阅的节点放进一个测速分组，启动后在代理页选择它</string>
+    <!-- FEATURE-4 END -->
 
     <string name="options_unavailable">Options Unavailable until Clash Stopped</string>
 

@@ -72,6 +72,11 @@ class ClashManager(private val context: Context) : IClashManager,
         return Clash.healthCheck(group).await()
     }
 
+    // FEATURE-4: runs on the binder thread; the Go test is bounded to 15 s.
+    override fun testProxy(name: String): Int {
+        return Clash.testProxy(name)
+    }
+
     override suspend fun updateProvider(type: Provider.Type, name: String) {
         return Clash.updateProvider(type, name).await()
     }

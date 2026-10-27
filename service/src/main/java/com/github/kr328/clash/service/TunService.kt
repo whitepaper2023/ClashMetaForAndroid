@@ -7,6 +7,8 @@ import android.net.ProxyInfo
 import android.net.VpnService
 import android.os.Build
 import com.github.kr328.clash.common.compat.pendingIntentFlags
+import com.github.kr328.clash.common.compat.startForegroundServiceCompat
+import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.constants.Components
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.service.clash.clashRuntime
@@ -25,6 +27,12 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
         get() = this
 
     private var reason: String? = null
+
+    // FEATURE-3 BEGIN: true only when the runtime ended via the manual-stop
+    // broadcast (CloseModule). A fault (config load error / exception) leaves
+    // it false, which is what distinguishes "restart me" from "stay stopped".
+    private var manualStop = false
+    // FEATURE-3 END
 
     private val runtime = clashRuntime {
         val store = ServiceStore(self)
@@ -49,6 +57,11 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
             while (isActive) {
                 val quit = select<Boolean> {
                     close.onEvent {
+                        // FEATURE-3: this is the ONLY manual-stop path. Mark
+                        // it before breaking so the finally block below can
+                        // clear shouldRun, and onDestroy will not restart.
+                        manualStop = true
+
                         true
                     }
                     config.onEvent {
@@ -73,6 +86,12 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
             reason = e.message
         } finally {
             withContext(NonCancellable) {
+                // FEATURE-3: a manual stop clears shouldRun so a later
+                // system recreation (null intent) returns NOT_STICKY. A
+                // fault leaves shouldRun true so the service may come back.
+                if (manualStop)
+                    ServiceStore(self).shouldRun = false
+
                 tun.close()
 
                 stopSelf()
@@ -97,7 +116,26 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         sendClashStarted()
 
-        return super.onStartCommand(intent, flags, startId)
+        // FEATURE-3 BEGIN: START_STICKY gate (port of Java firewall v2.38
+        // SHOULD_RUN + START_STICKY; no boot receiver is added here).
+        // - Non-null intent = an explicit start (user, tile, boot receiver
+        //   from the existing AppSettings toggle): mark shouldRun, STICKY.
+        // - Null intent = system recreation after a kill: STICKY only if a
+        //   previous explicit start marked shouldRun; otherwise stop right
+        //   away and return NOT_STICKY so the system never recreates us.
+        // stopSelf() after a manual stop is already definitive on Android,
+        // so this gate is a second lock, not the only one.
+        val store = ServiceStore(self)
+        return if (intent != null) {
+            store.shouldRun = true
+            START_STICKY
+        } else if (store.shouldRun) {
+            START_STICKY
+        } else {
+            stopSelf()
+            START_NOT_STICKY
+        }
+        // FEATURE-3 END
     }
 
     override fun onDestroy() {
@@ -107,12 +145,42 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
 
         sendClashStopped(reason)
 
+        // FEATURE-3 BEGIN: fault auto-restart. Restart ONLY when all four
+        // hold: (1) not a manual stop, (2) the runtime ended with a fault
+        // (reason != null: config load error or runtime exception -- a clean
+        // end without reason never restarts), (3) shouldRun is still true,
+        // (4) no auto-restart in the last 60 s (anti hot-loop: a persistent
+        // fault such as a revoked VPN permission restarts at most once per
+        // minute, then stays stopped for a manual start). The restart is
+        // wrapped so a blocked start (e.g. app force-stopped) cannot crash
+        // onDestroy. No boot receiver: this only fires from a live service.
+        runCatching {
+            val store = ServiceStore(self)
+            val now = System.currentTimeMillis()
+            if (!manualStop && reason != null && store.shouldRun &&
+                now - store.lastAutoRestartAt > 60_000
+            ) {
+                store.lastAutoRestartAt = now
+                startForegroundServiceCompat(TunService::class.intent)
+                Log.i("TunService fault auto-restart: ${reason}")
+            }
+        }
+
         cancelAndJoinBlocking()
 
         Log.i("TunService destroyed: ${reason ?: "successfully"}")
 
         super.onDestroy()
     }
+
+    // FEATURE-3 BEGIN: VPN revoked by the user (e.g. from system settings)
+    // is a manual stop: clear shouldRun so nothing brings us back, then
+    // stop. Without this, a revoke-stop would leave a stale shouldRun=true.
+    override fun onRevoke() {
+        ServiceStore(self).shouldRun = false
+        stopSelf()
+    }
+    // FEATURE-3 END
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)

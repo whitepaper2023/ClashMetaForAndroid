@@ -25,7 +25,6 @@ class ProxyViewState(
     var background: Int = config.unselectedBackground
     var controls: Int = config.unselectedControl
 
-    private var delay: Int = 0
     private var selected: Boolean = false
     private var parentNow: String = ""
     private var linkNow: String? = null
@@ -56,10 +55,21 @@ class ProxyViewState(
             subtitle = proxy.subtitle
         }
 
-        if (delay != proxy.delay) {
-            delay = proxy.delay
-            delayText = if (proxy.delay in 0..Short.MAX_VALUE) proxy.delay.toString() else ""
+        // FEATURE-4 BEGIN: tri-state delay text, recomputed every frame
+        // from the proxy's test state (not from Delay alone, which is
+        // 0xffff for both untested and failed):
+        // - never tested -> "未测"
+        // - tested and failed -> "-1"
+        // - tested and alive -> "Nms"
+        // Group rows previously showed a blank delay for untested/failed;
+        // they now show the same three states.
+        delayText = when {
+            !proxy.tested -> "未测"
+            !proxy.alive -> "-1"
+            proxy.delay in 0..Short.MAX_VALUE -> "${proxy.delay}ms"
+            else -> "-1"
         }
+        // FEATURE-4 END
 
         if (parentNow !== parent.now) {
             parentNow = parent.now
