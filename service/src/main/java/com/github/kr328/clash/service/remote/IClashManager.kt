@@ -18,6 +18,9 @@ interface IClashManager {
     suspend fun healthCheck(group: String)
     suspend fun updateProvider(type: Provider.Type, name: String)
 
+    // FEATURE-4: single-proxy test, returns delay ms, -1 failed, -2 not found/group.
+    fun testProxy(name: String): Int
+
     fun queryOverride(slot: Clash.OverrideSlot): ConfigurationOverride
     fun patchOverride(slot: Clash.OverrideSlot, configuration: ConfigurationOverride)
     fun clearOverride(slot: Clash.OverrideSlot)
