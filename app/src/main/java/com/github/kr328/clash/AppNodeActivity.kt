@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.github.kr328.clash.core.model.ProxySort
 import com.github.kr328.clash.design.AppNodeDesign
+import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.model.AppInfo
 import com.github.kr328.clash.design.util.toAppInfo
 import com.github.kr328.clash.service.store.ServiceStore
