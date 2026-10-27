@@ -38,9 +38,9 @@ class AppNodeDesign(
 
         binding.activityBarLayout.applyFrom(context)
 
-        binding.mainList.recyclerList.apply {
-            bindAppBarElevation(binding.activityBarLayout)
-            applyLinearAdapter(context, adapter)
+        binding.mainList.recyclerList.also {
+            it.bindAppBarElevation(binding.activityBarLayout)
+            it.applyLinearAdapter(context, adapter)
         }
 
         adapter.blockedNote = context.getString(R.string.app_node_blocked_first)
