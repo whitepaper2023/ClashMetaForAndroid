@@ -129,6 +129,12 @@ object Clash {
         Bridge.nativeHealthCheckAll()
     }
 
+    // FEATURE-4: single-proxy test (synchronous, up to ~15 s: call only
+    // off the main thread). Returns delay ms, -1 failed, -2 not found/group.
+    fun testProxy(name: String): Int {
+        return Bridge.nativeTestProxy(name)
+    }
+
     fun patchSelector(selector: String, name: String): Boolean {
         return Bridge.nativePatchSelector(selector, name)
     }

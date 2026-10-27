@@ -22,7 +22,8 @@ class NetworkSettingsDesign(
     running: Boolean,
 ) : Design<NetworkSettingsDesign.Request>(context) {
     enum class Request {
-        StartAccessControlList
+        StartAccessControlList, StartBlockedApps, // FEATURE-1: StartBlockedApps
+        StartAppNodes // FEATURE-2
     }
 
     private val binding = DesignSettingsCommonBinding
@@ -131,6 +132,37 @@ class NetworkSettingsDesign(
                     requests.trySend(Request.StartAccessControlList)
                 }
             }
+
+            // FEATURE-1 BEGIN: entry to the app blocklist page.
+            clickable(
+                title = R.string.blocked_packages,
+                summary = R.string.blocked_packages_summary,
+            ) {
+                clicked {
+                    requests.trySend(Request.StartBlockedApps)
+                }
+            }
+            // FEATURE-1 END
+            // FEATURE-2 BEGIN: entry to the per-app node page.
+            clickable(
+                title = R.string.app_node_packages,
+                summary = R.string.app_node_packages_summary,
+            ) {
+                clicked {
+                    requests.trySend(Request.StartAppNodes)
+                }
+            }
+            // FEATURE-2 END
+            // FEATURE-4 BEGIN: cross-provider fastest group toggle. Added
+            // to vpnDependencies so it is only editable while stopped:
+            // the group is injected at profile load time.
+            switch(
+                value = srvStore::globalAutoEnabled,
+                title = R.string.global_auto,
+                summary = R.string.global_auto_summary,
+                configure = vpnDependencies::add,
+            )
+            // FEATURE-4 END
 
             if (running) {
                 vpn.enabled = false

@@ -2,6 +2,7 @@ package com.github.kr328.clash.design.adapter
 
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.github.kr328.clash.core.model.Proxy
 import com.github.kr328.clash.design.component.ProxyView
 import com.github.kr328.clash.design.component.ProxyViewConfig
 import com.github.kr328.clash.design.component.ProxyViewState
@@ -9,6 +10,9 @@ import com.github.kr328.clash.design.component.ProxyViewState
 class ProxyAdapter(
     private val config: ProxyViewConfig,
     private val clicked: (String) -> Unit,
+    // FEATURE-4: long-press on a row tests that single proxy (or, for a
+    // group row, tests the whole group -- decided by the activity).
+    private val longClicked: (Proxy) -> Unit = {},
 ) : RecyclerView.Adapter<ProxyAdapter.Holder>() {
     class Holder(val view: ProxyView) : RecyclerView.ViewHolder(view)
 
@@ -27,6 +31,13 @@ class ProxyAdapter(
 
             setOnClickListener {
                 clicked(current.proxy.name)
+            }
+
+            // FEATURE-4: long-press tests this row only. Returning true
+            // consumes the event so a long-press never also selects.
+            setOnLongClickListener {
+                longClicked(current.proxy)
+                true
             }
 
             val isSelector = selectable
