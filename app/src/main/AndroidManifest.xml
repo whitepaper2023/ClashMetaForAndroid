@@ -177,6 +177,20 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/access_control_packages" />
+        <!-- FEATURE-1 BEGIN: app blocklist page -->
+        <activity
+            android:name=".BlockedAppsActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/blocked_packages" />
+        <!-- FEATURE-1 END -->
+        <!-- FEATURE-2 BEGIN: per-app node page -->
+        <activity
+            android:name=".AppNodeActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/app_node_packages" />
+        <!-- FEATURE-2 END -->
         <activity
             android:name=".HelpActivity"
             android:configChanges="uiMode"

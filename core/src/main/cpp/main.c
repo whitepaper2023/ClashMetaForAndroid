@@ -202,6 +202,19 @@ Java_com_github_kr328_clash_core_bridge_Bridge_nativeHealthCheckAll(JNIEnv *env,
     healthCheckAll();
 }
 
+// FEATURE-4 BEGIN: single-proxy test. Synchronous (bounded to 15 s by
+// the Go context); callers must not call it on the main thread.
+JNIEXPORT jint JNICALL
+Java_com_github_kr328_clash_core_bridge_Bridge_nativeTestProxy(JNIEnv *env, jobject thiz,
+                                                               jstring name) {
+    TRACE_METHOD();
+
+    scoped_string _name = get_string(name);
+
+    return (jint) testProxy(_name);
+}
+// FEATURE-4 END
+
 JNIEXPORT jboolean JNICALL
 Java_com_github_kr328_clash_core_bridge_Bridge_nativePatchSelector(JNIEnv *env, jobject thiz,
                                                                    jstring selector, jstring name) {

@@ -99,6 +99,24 @@ class ProxyActivity : BaseActivity<ProxyDesign>() {
                                 design.requests.send(ProxyDesign.Request.Reload(it.index))
                             }
                         }
+                        // FEATURE-4: long-press test. A group row reuses the
+                        // group health check on the TAPPED group (not the
+                        // page's group: rows can be nested groups); a single
+                        // proxy gets the new single test (which records a
+                        // history entry, so the following Reload shows
+                        // 未测 -> Nms or -1).
+                        is ProxyDesign.Request.TestProxy -> {
+                            launch {
+                                withClash {
+                                    if (it.isGroup)
+                                        healthCheck(it.name)
+                                    else
+                                        testProxy(it.name)
+                                }
+
+                                design.requests.send(ProxyDesign.Request.Reload(it.index))
+                            }
+                        }
                         is ProxyDesign.Request.PatchMode -> {
                             design.showModeSwitchTips()
 

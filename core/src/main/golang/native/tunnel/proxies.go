@@ -28,6 +28,13 @@ type Proxy struct {
 	Type     string `json:"type"`
 	Delay    int    `json:"delay"`
 	IsGroup  bool   `json:"isGroup"`
+	// FEATURE-4 BEGIN: tri-state test info. Delay alone cannot tell
+	// "never tested" from "tested and failed": LastDelayForTestUrl
+	// returns 0xffff for both. Tested is true only when a delay history
+	// exists for the test URL; Alive is that history's alive flag.
+	Alive  bool `json:"alive"`
+	Tested bool `json:"tested"`
+	// FEATURE-4 END
 }
 
 type ProxyGroup struct {
@@ -183,14 +190,25 @@ func convertProxies(proxies []C.Proxy, uiSubtitlePattern *regexp2.Regexp) []*Pro
 				}
 			}
 		}
+		// FEATURE-4: prefer the default test URL when it has a history,
+		// so the displayed state follows this app's own tests. Falling
+		// back to "first map key" would be random in Go (map iteration
+		// order) whenever several test URLs have histories.
 		testURL := "https://www.gstatic.com/generate_204"
-		for k := range p.ExtraDelayHistories() {
-			if len(k) > 0 {
-				testURL = k
-				break
+		histories := p.ExtraDelayHistories()
+		if _, ok := histories[testURL]; !ok {
+			for k := range histories {
+				if len(k) > 0 {
+					testURL = k
+					break
+				}
 			}
 		}
 		_, isGroup := p.Adapter().(outboundgroup.ProxyGroup)
+
+		// FEATURE-4: tri-state test info for the same test URL whose
+		// delay is reported below.
+		alive, tested := proxyTestState(p, testURL)
 
 		result = append(result, &Proxy{
 			Name:     name,
@@ -199,10 +217,25 @@ func convertProxies(proxies []C.Proxy, uiSubtitlePattern *regexp2.Regexp) []*Pro
 			Type:     p.Type().String(),
 			Delay:    int(p.LastDelayForTestUrl(testURL)),
 			IsGroup:  isGroup,
+			Alive:    alive,
+			Tested:   tested,
 		})
 	}
 	return result
 }
+
+// FEATURE-4 BEGIN: true only if this proxy has at least one recorded
+// delay history for the given test URL. A proxy that was never tested
+// has no entry at all; a tested-but-failed proxy has an entry whose
+// Alive flag is false -- the distinction the old Delay-only JSON lost.
+func proxyTestState(p C.Proxy, testURL string) (alive bool, tested bool) {
+	if state, ok := p.ExtraDelayHistories()[testURL]; ok && len(state.History) > 0 {
+		return state.Alive, true
+	}
+	return false, false
+}
+
+// FEATURE-4 END
 
 func collectProviders(providers []provider.ProxyProvider, uiSubtitlePattern *regexp2.Regexp) []*Proxy {
 	result := make([]*Proxy, 0, 128)
@@ -225,13 +258,19 @@ func collectProviders(providers []provider.ProxyProvider, uiSubtitlePattern *reg
 			}
 
 			testURL := "https://www.gstatic.com/generate_204"
-			for k := range px.ExtraDelayHistories() {
-				if len(k) > 0 {
-					testURL = k
-					break
+			histories := px.ExtraDelayHistories()
+			if _, ok := histories[testURL]; !ok {
+				for k := range histories {
+					if len(k) > 0 {
+						testURL = k
+						break
+					}
 				}
 			}
 			_, isGroup := px.Adapter().(outboundgroup.ProxyGroup)
+
+			// FEATURE-4: same tri-state info as convertProxies.
+			alive, tested := proxyTestState(px, testURL)
 
 			result = append(result, &Proxy{
 				Name:     name,
@@ -240,6 +279,8 @@ func collectProviders(providers []provider.ProxyProvider, uiSubtitlePattern *reg
 				Type:     px.Type().String(),
 				Delay:    int(px.LastDelayForTestUrl(testURL)),
 				IsGroup:  isGroup,
+				Alive:    alive,
+				Tested:   tested,
 			})
 		}
 	}

@@ -79,6 +79,15 @@ func healthCheckAll() {
 	tunnel.HealthCheckAll()
 }
 
+// FEATURE-4 BEGIN: single-proxy test export. Synchronous: the caller
+// runs it off the main thread (ClashManager binder thread via withClash
+// on Dispatchers.IO); the Go side bounds it with a 15 s context timeout.
+func testProxy(name C.c_string) C.int {
+	return C.int(tunnel.TestProxy(C.GoString(name)))
+}
+
+// FEATURE-4 END
+
 //export patchSelector
 func patchSelector(selector, name C.c_string) C.int {
 	s := C.GoString(selector)
