@@ -9,6 +9,7 @@ import com.github.kr328.clash.service.data.ImportedDao
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.store.parseAppNodeRules
+import com.github.kr328.clash.service.store.parseProviderNames
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.sendProfileLoaded
 import kotlinx.coroutines.channels.Channel
@@ -95,8 +96,11 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
         val appNodeRules = parseAppNodeRules(store.appNodeRules)
         val imported = service.importedDir.resolve(uuid.toString())
         // FEATURE-4: the global-auto group also needs the staging copy.
-        // All three off -> original dir untouched (baseline unchanged).
-        if (blocked.isEmpty() && appNodeRules.isEmpty() && !store.globalAutoEnabled)
+        // FEATURE-4B: a non-empty manual provider pick also needs it.
+        // Everything off -> original dir untouched (baseline unchanged).
+        if (blocked.isEmpty() && appNodeRules.isEmpty() && !store.globalAutoEnabled &&
+            store.globalAutoProviders.isEmpty()
+        )
             return imported
 
         val stagingRoot = service.filesDir.resolve("staging")
@@ -177,16 +181,44 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
         // it, so the feature rules win over every later rule. Column 0 is
         // required (startsWith, not trim): an indented `rules:` inside
         // another section must never match. A trailing comment is allowed.
+        // FEATURE-2B BEGIN: the inserted lines MUST use the same indent
+        // as the section's existing items. Inserting at column 0 into a
+        // list whose items are indented (e.g. 4 spaces, as in HENET
+        // configs and many airport subscriptions) breaks YAML parsing
+        // under Go yaml.v3 (mihomo: "did not find expected key"), which
+        // fails Clash.load, kills the service and breaks imports. The
+        // scan skips blank/comment lines and stops at the next column-0
+        // line (the next top-level key = an empty rules section).
         val blockStyle = lines.indexOfFirst {
             it.startsWith("rules:") && it.removePrefix("rules:").trim().let { rest ->
                 rest.isEmpty() || rest.startsWith("#")
             }
         }
         if (blockStyle >= 0) {
-            lines.addAll(blockStyle + 1, ruleLines)
+            var itemIndent = "  "
+            for (i in blockStyle + 1 until lines.size) {
+                val line = lines[i]
+                if (line.isBlank())
+                    continue
+                val trimmed = line.trimStart()
+                if (trimmed.startsWith("#"))
+                    continue
+                // A column-0 item counts too (prefix is empty): check the
+                // dash first, otherwise col-0 items would be mistaken for
+                // the next top-level key and get the wrong indent.
+                if (trimmed.startsWith("- ")) {
+                    itemIndent = line.substring(0, line.indexOf('-'))
+                    break
+                }
+                if (!line.startsWith(" ") && !line.startsWith("\t"))
+                    break
+            }
+            val indented = ruleLines.map { itemIndent + it }
+            lines.addAll(blockStyle + 1, indented)
             configFile.writeText(lines.joinToString("\n") + "\n")
             return
         }
+        // FEATURE-2B END
 
         // Case 2: single-line flow-style `rules: [...]` -> prepend items
         // inside [ ]. Block lines lose their "- " prefix inside flow style.
@@ -223,10 +255,13 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
     // FEATURE-1 END
 
     // FEATURE-4 BEGIN: cross-provider fastest group ("全局自动").
-    // Appends one url-test group that `use:`s every proxy-provider in the
-    // config, so mihomo's fastest selection spans all subscriptions. The
+    // Appends one url-test group that `use:`s proxy-providers in the
+    // config, so mihomo's fastest selection spans subscriptions. The
     // user then picks this group in the Proxy page like any other group.
-    // Scope limits, all fail-safe (log + skip, profile still loads):
+    // FEATURE-4B: the provider set is the user's manual pick when one
+    // exists (GlobalAutoActivity); with no pick, the old switch is the
+    // compat path (on = all providers, off = no group). Scope limits,
+    // all fail-safe (log + skip, profile still loads):
     // - only proxy-provider configs are covered; inline-`proxies:` configs
     //   have no provider names to `use:`, so nothing is injected;
     // - a flow-style `proxy-groups: [...]` line cannot take an inserted
@@ -236,7 +271,12 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
     private val globalAutoGroupName = "🚀 全局自动"
 
     private fun injectGlobalAutoGroup(configFile: File) {
-        if (!store.globalAutoEnabled)
+        // FEATURE-4B BEGIN: three cases, all decided before any write:
+        // switch off + no pick -> no group; switch on + no pick -> all
+        // providers; pick non-empty -> intersection with this config's
+        // providers (config order kept); empty intersection -> skip.
+        val picked = store.globalAutoProviders
+        if (!store.globalAutoEnabled && picked.isEmpty())
             return
         if (!configFile.exists()) {
             Log.w("config.yaml missing, global-auto group not applied")
@@ -250,21 +290,21 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             return
         }
 
-        val providers = parseProviderNames(lines)
-        if (providers.isEmpty()) {
+        val allProviders = parseProviderNames(lines)
+        if (allProviders.isEmpty()) {
             Log.w("No proxy-providers found, global-auto group not applied")
             return
         }
-
-        val groupLines = mutableListOf(
-            "  - name: ${yamlQuote(globalAutoGroupName)}",
-            "    type: url-test",
-            "    use:",
-        )
-        providers.forEach { groupLines.add("      - ${yamlQuote(it)}") }
-        groupLines.add("    url: https://www.gstatic.com/generate_204")
-        groupLines.add("    interval: 300")
-        groupLines.add("    lazy: false")
+        val providers = if (picked.isEmpty()) {
+            allProviders
+        } else {
+            allProviders.filter { it in picked }
+        }
+        if (providers.isEmpty()) {
+            Log.w("Global-auto picks are not in this config, group not applied")
+            return
+        }
+        // FEATURE-4B END
 
         val groupsAt = lines.indexOfFirst {
             // Column-0 key, trailing comment allowed (a comment-only rest
@@ -275,6 +315,40 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
                 rest.isEmpty() || rest.startsWith("#")
             }
         }
+
+        // FEATURE-2B BEGIN: match the existing proxy-groups items' indent
+        // (same YAML-mixing hazard as the rules fix: a group item at one
+        // indent followed by items at another breaks parsing). Group
+        // fields sit 2 spaces deeper than the item dash, `use:` items
+        // 4 spaces deeper. No existing item -> default 2-space base.
+        var baseIndent = "  "
+        if (groupsAt >= 0) {
+            for (i in groupsAt + 1 until lines.size) {
+                val line = lines[i]
+                if (line.isBlank())
+                    continue
+                val trimmed = line.trimStart()
+                if (trimmed.startsWith("#"))
+                    continue
+                if (trimmed.startsWith("- ")) {
+                    baseIndent = line.substring(0, line.indexOf('-'))
+                    break
+                }
+                if (!line.startsWith(" ") && !line.startsWith("\t"))
+                    break
+            }
+        }
+        val groupLines = mutableListOf(
+            "$baseIndent- name: ${yamlQuote(globalAutoGroupName)}",
+            "$baseIndent  type: url-test",
+            "$baseIndent  use:",
+        )
+        providers.forEach { groupLines.add("$baseIndent    - ${yamlQuote(it)}") }
+        groupLines.add("$baseIndent  url: https://www.gstatic.com/generate_204")
+        groupLines.add("$baseIndent  interval: 300")
+        groupLines.add("$baseIndent  lazy: false")
+        // FEATURE-2B END
+
         if (groupsAt < 0) {
             // No proxy-groups section at all: append a new one at the end.
             lines.add("")
@@ -302,45 +376,6 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
         }
         lines.addAll(insertAt, groupLines)
         configFile.writeText(lines.joinToString("\n") + "\n")
-    }
-
-    // Provider names are the exactly-2-space-indented keys directly under
-    // the top-level `proxy-providers:` key. Deeper-indented lines are the
-    // providers' own options and must be SKIPPED (not break on: breaking
-    // at the first option line would collect only the first provider).
-    // The scan ends only at the next column-0 line (the next top-level
-    // key) or end of file. A flow-style `proxy-providers: {...}` line has
-    // no such following lines and yields an empty list.
-    private fun parseProviderNames(lines: List<String>): List<String> {
-        val start = lines.indexOfFirst {
-            it.startsWith("proxy-providers:") && it.removePrefix("proxy-providers:").trim().let { rest ->
-                rest.isEmpty() || rest.startsWith("#")
-            }
-        }
-        if (start < 0)
-            return emptyList()
-
-        val result = mutableListOf<String>()
-        for (i in start + 1 until lines.size) {
-            val line = lines[i]
-            if (line.isBlank())
-                continue
-            if (!line.startsWith(" "))
-                break
-            val trimmed = line.trimStart()
-            if (trimmed.startsWith("#"))
-                continue
-            val indent = line.length - trimmed.length
-            if (indent != 2)
-                continue
-            val colon = trimmed.indexOf(':')
-            if (colon <= 0)
-                continue
-            val name = trimmed.substring(0, colon).trim().trim('"', '\'')
-            if (name.isNotEmpty())
-                result.add(name)
-        }
-        return result
     }
 
     private fun yamlQuote(value: String): String {
