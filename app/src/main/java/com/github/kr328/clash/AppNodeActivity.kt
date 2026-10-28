@@ -42,28 +42,67 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
         // running, also prune rules pointing at targets that no longer
         // exist (e.g. after a subscription change); the prune is saved by
         // the defer block below when leaving the page.
+        // FEATURE-2B BEGIN: recursive cross-group expansion. The old code
+        // only took the top-level groups' direct non-group members, so
+        // nodes nested inside a subgroup (a group inside a group) never
+        // appeared. Now every group is walked breadth-first: the group
+        // name itself is a target, subgroup members are queued, and
+        // visited guards against group cycles. A name containing ','
+        // can never be expressed in a comma-separated PROCESS-NAME rule
+        // line: never offer it. Displays run parallel to values so the
+        // picker shows where each node belongs; first occurrence wins
+        // for duplicate node names.
         var targets: List<String> = emptyList()
+        var targetDisplays: List<String> = emptyList()
         if (clashRunning) {
-            targets = withClash {
-                val names = queryProxyGroupNames(false)
-                    .filter { it != "GLOBAL" }
-                val result = LinkedHashSet<String>()
-                for (name in names) {
-                    // A name containing ',' cannot be expressed in a
-                    // comma-separated PROCESS-NAME rule line: never offer it.
-                    if (',' !in name)
-                        result.add(name)
-                    val group = queryProxyGroup(name, ProxySort.Default)
-                    for (proxy in group.proxies) {
-                        if (!proxy.isGroup && ',' !in proxy.name)
-                            result.add(proxy.name)
+            val collected = withClash {
+                val valueList = ArrayList<String>()
+                val displayList = ArrayList<String>()
+                val seenValues = HashSet<String>()
+                fun offer(value: String, display: String) {
+                    if (',' !in value && seenValues.add(value)) {
+                        valueList.add(value)
+                        displayList.add(display)
                     }
                 }
-                result.toList()
+                val visited = HashSet<String>()
+                val queue = ArrayDeque<String>()
+                queryProxyGroupNames(false)
+                    .filter { it != "GLOBAL" }
+                    .forEach { queue.addLast(it) }
+                while (queue.isNotEmpty()) {
+                    val name = queue.removeFirst()
+                    if (!visited.add(name))
+                        continue
+                    offer(name, "$name（分组）")
+                    val group = queryProxyGroup(name, ProxySort.Default)
+                    for (proxy in group.proxies) {
+                        if (',' in proxy.name)
+                            continue
+                        if (proxy.isGroup) {
+                            if (proxy.name !in visited)
+                                queue.addLast(proxy.name)
+                        } else {
+                            offer(proxy.name, "${proxy.name} @ $name")
+                        }
+                    }
+                }
+                // GLOBAL holds the direct proxies in global mode; only
+                // its non-group members are extra targets here, labelled
+                // "全局" (nodes already seen in a group keep that group).
+                val global = queryProxyGroup("GLOBAL", ProxySort.Default)
+                for (proxy in global.proxies) {
+                    if (!proxy.isGroup)
+                        offer(proxy.name, "${proxy.name} @ 全局")
+                }
+                valueList to displayList
             }
+            targets = collected.first
+            targetDisplays = collected.second
             val targetSet = targets.toSet()
             rules.entries.removeAll { it.value !in targetSet }
         }
+        // FEATURE-2B END
 
         Toast.makeText(this, "选择后退出本页生效", Toast.LENGTH_LONG).show()
 
@@ -110,7 +149,7 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
                                     ).show()
                                 }
                             } else {
-                                showNodePicker(design, apps, rules, blocked, targets, pkg)
+                                showNodePicker(design, apps, rules, blocked, targets, targetDisplays, pkg)
                             }
                         }
                     }
@@ -125,13 +164,17 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
         rules: MutableMap<String, String>,
         blocked: Set<String>,
         targets: List<String>,
+        targetDisplays: List<String>,
         pkg: String,
     ) {
         val label = apps.firstOrNull { it.packageName == pkg }?.label ?: pkg
         val clearText = getString(R.string.app_node_clear)
         val items = ArrayList<String>()
         items.add(clearText)
-        items.addAll(targets)
+        // FEATURE-2B: show the display strings, but index back into the
+        // value list: displays and values are built in parallel, and the
+        // clear row stays at index 0, so checked/which map 1:1.
+        items.addAll(targetDisplays)
         val current = rules[pkg]
         val checked = if (current == null) 0 else targets.indexOf(current) + 1
 

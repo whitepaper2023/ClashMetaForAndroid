@@ -191,6 +191,20 @@
             android:exported="false"
             android:label="@string/app_node_packages" />
         <!-- FEATURE-2 END -->
+        <!-- FEATURE-4B BEGIN: manual global-auto subscription picker -->
+        <activity
+            android:name=".GlobalAutoActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/global_auto_short" />
+        <!-- FEATURE-4B END -->
+        <!-- FEATURE-5 BEGIN: per-profile node filter picker -->
+        <activity
+            android:name=".NodeFilterActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/proxy_filter_nodes" />
+        <!-- FEATURE-5 END -->
         <activity
             android:name=".HelpActivity"
             android:configChanges="uiMode"

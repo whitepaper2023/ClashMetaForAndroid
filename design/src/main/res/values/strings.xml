@@ -163,6 +163,13 @@
     <string name="global_auto">全局自动（跨订阅组选最快）</string>
     <string name="global_auto_summary">自动把全部订阅的节点放进一个测速分组，启动后在代理页选择它</string>
     <!-- FEATURE-4 END -->
+    <!-- FEATURE-4B BEGIN: short title for the homepage entry -->
+    <string name="global_auto_short">全局自动</string>
+    <!-- FEATURE-4B END -->
+    <!-- FEATURE-5 BEGIN: per-profile node filter (profile menu entry
+         and NodeFilterActivity label share this string) -->
+    <string name="proxy_filter_nodes">筛选节点</string>
+    <!-- FEATURE-5 END -->
 
     <string name="options_unavailable">Options Unavailable until Clash Stopped</string>
 
