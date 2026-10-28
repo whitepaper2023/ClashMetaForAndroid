@@ -60,6 +60,14 @@ class MainActivity : BaseActivity<MainDesign>() {
                         }
                         MainDesign.Request.OpenProxy ->
                             startActivity(ProxyActivity::class.intent)
+                        // FEATURE-2B BEGIN: homepage entry for per-app nodes.
+                        MainDesign.Request.OpenAppNodes ->
+                            startActivity(AppNodeActivity::class.intent)
+                        // FEATURE-2B END
+                        // FEATURE-4B BEGIN: homepage entry for global-auto.
+                        MainDesign.Request.OpenGlobalAuto ->
+                            startActivity(GlobalAutoActivity::class.intent)
+                        // FEATURE-4B END
                         MainDesign.Request.OpenProfiles ->
                             startActivity(ProfilesActivity::class.intent)
                         MainDesign.Request.OpenProviders ->

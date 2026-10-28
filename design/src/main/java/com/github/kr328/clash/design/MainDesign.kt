@@ -17,6 +17,14 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     enum class Request {
         ToggleStatus,
         OpenProxy,
+        // FEATURE-2B / FEATURE-4B BEGIN: homepage entries for per-app
+        // node picks and the manual global-auto subscription picker.
+        // Both pages open while stopped too (they only need the stored
+        // config / stored picks then); picking a node still requires a
+        // running Clash, as before.
+        OpenAppNodes,
+        OpenGlobalAuto,
+        // FEATURE-2B / FEATURE-4B END
         OpenProfiles,
         OpenProviders,
         OpenLogs,
