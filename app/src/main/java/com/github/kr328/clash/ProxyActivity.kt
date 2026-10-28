@@ -5,6 +5,8 @@ import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.model.Proxy
 import com.github.kr328.clash.design.ProxyDesign
 import com.github.kr328.clash.design.model.ProxyState
+import com.github.kr328.clash.service.store.ServiceStore
+import com.github.kr328.clash.service.store.parseProxyFilterRules
 import com.github.kr328.clash.util.withClash
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -72,9 +74,32 @@ class ProxyActivity : BaseActivity<ProxyDesign>() {
 
                                 state.now = group.now
 
+                                // FEATURE-5 BEGIN: per-profile node filter.
+                                // The active profile's filter set, if any,
+                                // hides leaf rows whose names are not in
+                                // it. Group rows are never filtered out
+                                // (a hidden group would hide its kept
+                                // members too); an empty set, a null
+                                // active profile, or no entry for this
+                                // profile all mean "show all". Select /
+                                // TestProxy / UrlTest branches are untouched.
+                                val filter = ServiceStore(this@ProxyActivity).let { store ->
+                                    store.activeProfile?.toString()?.let { uuidText ->
+                                        parseProxyFilterRules(store.proxyFilterRules)[uuidText]
+                                    } ?: emptySet()
+                                }
+                                val shown = if (filter.isEmpty()) {
+                                    group.proxies
+                                } else {
+                                    group.proxies.filter { proxy ->
+                                        proxy.isGroup || proxy.name in filter
+                                    }
+                                }
+                                // FEATURE-5 END
+
                                 design.updateGroup(
                                     it.index,
-                                    group.proxies,
+                                    shown,
                                     group.type == "Selector",
                                     state,
                                     unorderedStates

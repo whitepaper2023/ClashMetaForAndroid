@@ -34,6 +34,9 @@ class ProfilesDesign(context: Context) : Design<ProfilesDesign.Request>(context)
         data class Update(val profile: Profile) : Request()
         data class Edit(val profile: Profile) : Request()
         data class Duplicate(val profile: Profile) : Request()
+        // FEATURE-5 BEGIN: per-profile node filter picker.
+        data class FilterNodes(val profile: Profile) : Request()
+        // FEATURE-5 END
         data class ShareQrCode(val profile: Profile) : Request()
         data class Delete(val profile: Profile) : Request()
     }
@@ -139,6 +142,15 @@ class ProfilesDesign(context: Context) : Design<ProfilesDesign.Request>(context)
 
         dialog.dismiss()
     }
+
+    // FEATURE-5 BEGIN: mirrors requestEdit/requestDuplicate: send the
+    // request and dismiss the menu dialog.
+    fun requestFilterNodes(dialog: Dialog, profile: Profile) {
+        requests.trySend(Request.FilterNodes(profile))
+
+        dialog.dismiss()
+    }
+    // FEATURE-5 END
 
     fun requestDelete(dialog: Dialog, profile: Profile) {
         requests.trySend(Request.Delete(profile))

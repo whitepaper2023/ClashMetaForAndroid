@@ -75,6 +75,10 @@ class ProfilesActivity : BaseActivity<ProfilesDesign>() {
 
                             startActivity(PropertiesActivity::class.intent.setUUID(uuid))
                         }
+                        // FEATURE-5 BEGIN: per-profile node filter picker.
+                        is ProfilesDesign.Request.FilterNodes ->
+                            startActivity(NodeFilterActivity::class.intent.setUUID(it.profile.uuid))
+                        // FEATURE-5 END
                         is ProfilesDesign.Request.ShareQrCode ->
                             design.showProfileQrCode(it.profile)
                     }
