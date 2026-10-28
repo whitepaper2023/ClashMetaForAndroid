@@ -37,6 +37,15 @@ class ProxyActivity : BaseActivity<ProxyDesign>() {
             select<Unit> {
                 events.onReceive {
                     when (it) {
+                        // FEATURE-5 AUDIT: returning to an already-open
+                        // Proxy page (e.g. back from the filter picker)
+                        // must re-apply the filter; otherwise the page
+                        // keeps showing pre-filter rows until re-entered.
+                        // ReloadAll is idempotent (re-queries groups),
+                        // so a duplicate reload on first start is harmless.
+                        Event.ActivityStart -> {
+                            design.requests.send(ProxyDesign.Request.ReloadAll)
+                        }
                         Event.ProfileLoaded -> {
                             val newNames = withClash {
                                 queryProxyGroupNames(uiStore.proxyExcludeNotSelectable)
