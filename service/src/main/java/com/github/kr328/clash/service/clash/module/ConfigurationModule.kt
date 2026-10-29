@@ -8,7 +8,9 @@ import com.github.kr328.clash.service.StatusProvider
 import com.github.kr328.clash.service.data.ImportedDao
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
+import com.github.kr328.clash.service.store.PastedProxyEntry
 import com.github.kr328.clash.service.store.parseAppNodeRulesForProfile
+import com.github.kr328.clash.service.store.parsePastedProxies
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.sendProfileLoaded
 import kotlinx.coroutines.channels.Channel
@@ -94,9 +96,12 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
         // FEATURE-2D: per-app node rules ride the same staging copy,
         // but only this profile's own rules -- never another profile's.
         val appNodeRules = parseAppNodeRulesForProfile(store.appNodeRules, uuid)
+        // FEATURE-PASTE: pasted nodes ride the same staging copy, so
+        // they survive subscription updates (see injectPastedProxies).
+        val pasted = parsePastedProxies(store.pastedProxies, uuid)
         val imported = service.importedDir.resolve(uuid.toString())
         // Everything off -> original dir untouched (baseline unchanged).
-        if (blocked.isEmpty() && appNodeRules.isEmpty())
+        if (blocked.isEmpty() && appNodeRules.isEmpty() && pasted.isEmpty())
             return imported
 
         val stagingRoot = service.filesDir.resolve("staging")
@@ -134,6 +139,11 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             // wins over a node rule for the same app (first match wins).
             buildBlockRuleLines(blocked) + buildAppNodeRuleLines(safeAppNodeRules)
         )
+
+        // FEATURE-PASTE: pasted nodes are injected after the rules (the
+        // sections are independent, so order between the two does not
+        // matter; the file is written twice, once per injector).
+        injectPastedProxies(stagingTmp.resolve("config.yaml"), pasted)
 
         staging.deleteRecursively()
         if (!stagingTmp.renameTo(staging))
@@ -298,6 +308,246 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             Log.w("Unsupported rules format, feature rules not applied")
         }
     }
+    // FEATURE-PASTE BEGIN: pasted nodes ride the same staging copy as the
+    // feature rules, so they survive subscription updates (staging is
+    // rebuilt from the imported originals on every load). Two edits:
+    //  1. each pasted YAML block is appended to the top-level `proxies:`
+    //     section (created if absent), re-indented to that section's item
+    //     indent -- the same indent-matching rule as injectFeatureRules;
+    //  2. each pasted name is appended to every Selector group's `proxies:`
+    //     list (groups without a proxies list, e.g. provider-only `use:`
+    //     groups, and url-test/fallback/load-balance groups are skipped).
+    //     A name already in a group's list is not duplicated. Only names
+    //     actually injected in step 1 are appended: a group must never
+    //     reference a proxy the config does not define (mihomo fails the
+    //     whole load with "proxy [...] not found").
+    //  Provider-based configs still get step 1 (inline proxies coexist
+    //  with providers); their pasted nodes are usable in global mode,
+    //  where the GLOBAL group lists every proxy.
+    private fun injectPastedProxies(configFile: File, entries: List<PastedProxyEntry>) {
+        if (entries.isEmpty())
+            return
+        if (!configFile.exists()) {
+            Log.w("config.yaml missing, pasted proxies not applied")
+            return
+        }
+        val lines = configFile.readLines().toMutableList()
+        var changed = false
+
+        // ---- step 1: proxies: section ----
+        val proxiesIdx = lines.indexOfFirst {
+            it.startsWith("proxies:") && it.removePrefix("proxies:").trim().let { rest ->
+                rest.isEmpty() || rest.startsWith("#")
+            }
+        }
+        val flowProxiesIdx = if (proxiesIdx < 0) lines.indexOfFirst {
+            it.startsWith("proxies:") && it.contains("[") && it.contains("]")
+        } else -1
+        if (flowProxiesIdx >= 0) {
+            // Flow-style inline proxies cannot take block items without
+            // rewriting the user's structure; skip both steps for safety.
+            Log.w("Flow-style proxies section, pasted proxies not applied")
+            return
+        }
+        if (proxiesIdx >= 0) {
+            val itemIndent = detectSectionItemIndent(lines, proxiesIdx)
+            val insertAt = sectionEnd(lines, proxiesIdx)
+            val toAdd = ArrayList<String>()
+            for (entry in entries) {
+                for (line in entry.yamlLines)
+                    toAdd.add(itemIndent + line)
+            }
+            lines.addAll(insertAt, toAdd)
+            changed = true
+        } else {
+            // No proxies: section at all: create one at the end.
+            lines.add("")
+            lines.add("proxies:")
+            for (entry in entries) {
+                for (line in entry.yamlLines)
+                    lines.add("  " + line)
+            }
+            changed = true
+        }
+
+        // ---- step 2: Selector groups' proxies: lists ----
+        // Search the UPDATED list (step 1 may have appended a section).
+        val groupsIdx = lines.indexOfFirst {
+            it.startsWith("proxy-groups:") && it.removePrefix("proxy-groups:").trim().let { rest ->
+                rest.isEmpty() || rest.startsWith("#")
+            }
+        }
+        if (groupsIdx >= 0) {
+            val groupIndent = detectSectionItemIndent(lines, groupsIdx)
+            val injectedNames = entries.map { it.name }
+            // Section end and item indices shift with every edit, so both
+            // are recomputed from the current list on each iteration, and
+            // the next-group search is always bounded by the current
+            // section end (a later section's items share the indent and
+            // must never be mistaken for groups).
+            var i = groupsIdx + 1
+            while (true) {
+                val end = sectionEnd(lines, groupsIdx)
+                if (i >= end) break
+                if (isSectionItem(lines[i], groupIndent)) {
+                    val blockEnd = findNextSectionItem(lines, i + 1, end, groupIndent)
+                    if (appendToGroupIfSelector(lines, i, blockEnd, injectedNames))
+                        changed = true
+                    val newEnd = sectionEnd(lines, groupsIdx)
+                    val next = findNextSectionItem(lines, i + 1, newEnd, groupIndent)
+                    if (next >= newEnd) break
+                    i = next
+                } else {
+                    i++
+                }
+            }
+        }
+
+        if (changed)
+            configFile.writeText(lines.joinToString("\n") + "\n")
+    }
+
+    // Appends injectedNames to one group's proxies: list if the group is a
+    // Selector (or has no type, which defaults to select) and has a
+    // proxies list. Returns true when the lines changed. Block edits are
+    // done in place; the caller recomputes indices afterwards.
+    private fun appendToGroupIfSelector(
+        lines: MutableList<String>,
+        blockStart: Int,
+        blockEnd: Int,
+        names: List<String>,
+    ): Boolean {
+        // Scan the whole block: field order varies (type: may come
+        // after proxies:), so an early break at proxies: could miss a
+        // url-test/fallback type and wrongly treat the group as a
+        // selector. First occurrences win; groups have at most one of
+        // each key.
+        var type: String? = null
+        var proxiesLine = -1
+        var proxiesFlow = false
+        for (j in blockStart + 1 until blockEnd.coerceAtMost(lines.size)) {
+            val trimmed = lines[j].trim()
+            if (type == null && trimmed.startsWith("type:")) {
+                type = unquoteYamlScalar(trimmed.removePrefix("type:").trim())
+            } else if (proxiesLine < 0 && trimmed.startsWith("proxies:")) {
+                proxiesLine = j
+                proxiesFlow = trimmed.contains("[") && trimmed.contains("]")
+            }
+        }
+        if (proxiesLine < 0) return false
+        if (type != null && type != "select") return false
+
+        if (proxiesFlow) {
+            val line = lines[proxiesLine]
+            val open = line.indexOf('[')
+            val close = line.indexOf(']', open)
+            if (open < 0 || close < 0) return false
+            val existing = line.substring(open + 1, close).split(",")
+                .map { unquoteYamlScalar(it.trim()) }
+                .filter { it.isNotEmpty() }
+                .toSet()
+            val missing = names.filter { it !in existing }
+            if (missing.isEmpty()) return false
+            val inner = (existing + missing).joinToString(", ") { yamlQuote(it) }
+            val trailing = line.substring(close + 1)
+            lines[proxiesLine] = line.substring(0, open + 1) + inner + "]" + trailing
+            return true
+        }
+
+        // Block-style list: items are deeper-indented "- " lines following
+        // the proxies: line, up to the next field at <= its indent.
+        val listIndent = lines[proxiesLine].let { it.substring(0, it.indexOf("proxies:")) }
+        var insertAt = proxiesLine + 1
+        var itemIndent: String? = null
+        val existing = HashSet<String>()
+        var j = proxiesLine + 1
+        while (j < blockEnd.coerceAtMost(lines.size)) {
+            val lj = lines[j]
+            if (lj.isBlank() || lj.trimStart().startsWith("#")) {
+                j++
+                continue
+            }
+            val indent = lj.substring(0, lj.length - lj.trimStart().length)
+            if (indent.length <= listIndent.length)
+                break
+            val trimmed = lj.trimStart()
+            if (!trimmed.startsWith("- "))
+                break
+            if (itemIndent == null) itemIndent = indent
+            existing.add(unquoteYamlScalar(trimmed.removePrefix("- ").trim()))
+            insertAt = j + 1
+            j++
+        }
+        val missing = names.filter { it !in existing }
+        if (missing.isEmpty()) return false
+        val indent = itemIndent ?: (listIndent + "  ")
+        lines.addAll(insertAt, missing.map { "$indent- ${yamlQuote(it)}" })
+        return true
+    }
+
+    // First index after sectionIdx that starts the next top-level key:
+    // a non-blank, non-comment line at column 0 that is not a "- " item.
+    private fun sectionEnd(lines: List<String>, sectionIdx: Int): Int {
+        for (i in sectionIdx + 1 until lines.size) {
+            val line = lines[i]
+            if (line.isBlank() || line.trimStart().startsWith("#"))
+                continue
+            if (!line.startsWith(" ") && !line.startsWith("\t") && !line.trimStart().startsWith("- "))
+                return i
+        }
+        return lines.size
+    }
+
+    // Indent of the first "- " item in a section, or "  " when the section
+    // has no items yet (column-0 items count with an empty prefix).
+    private fun detectSectionItemIndent(lines: List<String>, sectionIdx: Int): String {
+        val end = sectionEnd(lines, sectionIdx)
+        for (i in sectionIdx + 1 until end) {
+            val line = lines[i]
+            if (line.isBlank() || line.trimStart().startsWith("#"))
+                continue
+            val trimmed = line.trimStart()
+            if (trimmed.startsWith("- "))
+                return line.substring(0, line.indexOf('-'))
+        }
+        return "  "
+    }
+
+    private fun isSectionItem(line: String, indent: String): Boolean {
+        if (!line.startsWith(indent)) return false
+        val rest = line.substring(indent.length)
+        return rest.startsWith("- ")
+    }
+
+    private fun findNextSectionItem(
+        lines: List<String>,
+        from: Int,
+        until: Int,
+        indent: String,
+    ): Int {
+        for (i in from until until.coerceAtMost(lines.size)) {
+            if (isSectionItem(lines[i], indent))
+                return i
+        }
+        return until.coerceAtMost(lines.size)
+    }
+
+    private fun unquoteYamlScalar(raw: String): String {
+        val value = raw.trim()
+        if (value.length >= 2 && value.startsWith("\"") && value.endsWith("\""))
+            return value.substring(1, value.length - 1)
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+        if (value.length >= 2 && value.startsWith("'") && value.endsWith("'"))
+            return value.substring(1, value.length - 1).replace("''", "'")
+        return value.substringBefore("#").trim()
+    }
+
+    private fun yamlQuote(value: String): String {
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+    }
+    // FEATURE-PASTE END
+
     // FEATURE-1 END
 
 }
