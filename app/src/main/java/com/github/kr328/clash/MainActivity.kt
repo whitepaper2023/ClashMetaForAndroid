@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import androidx.lifecycle.lifecycleScope
 import com.github.kr328.clash.common.constants.Intents
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.util.ticker
@@ -27,9 +28,13 @@ import com.github.kr328.clash.core.model.TunnelState
 import com.github.kr328.clash.service.remote.IClashManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 import com.github.kr328.clash.design.R as DesignR
 
 class MainActivity : BaseActivity<MainDesign>() {
@@ -37,6 +42,18 @@ class MainActivity : BaseActivity<MainDesign>() {
     // ticker only queries one group per tick and rescans only when the
     // cached group stops being a Selector (e.g. after a profile switch).
     private var currentNodeGroup: String? = null
+
+    // FEATURE-EXITIP: egress-IP line on the running card. The value cached
+    // here is the full second subtext line including its leading newline,
+    // or null when no line is shown. Refresh triggers: node change, a
+    // failed lookup retried after 60 s, and a successful lookup refreshed
+    // after 10 min. The lookup itself runs in lifecycleScope so the 1 s
+    // ticker never stalls on the 5 s network timeouts.
+    private var exitIpLine: String? = null
+    private var exitIpNode: String? = null
+    private var exitIpLastAttemptMs: Long = 0L
+    private var exitIpLastSuccessMs: Long = 0L
+    private var exitIpFetching: Boolean = false
 
     override suspend fun main() {
         val design = MainDesign(this)
@@ -112,9 +129,90 @@ class MainActivity : BaseActivity<MainDesign>() {
     }
 
     private suspend fun MainDesign.fetchTraffic() {
-        withClash {
+        val node = withClash {
             setForwarded(queryTrafficTotal())
-            setCurrentNode(resolveCurrentNode())
+            resolveCurrentNode().also { setCurrentNode(it) }
+        }
+        refreshExitIpIfNeeded(node)
+    }
+
+    // FEATURE-EXITIP: decides whether the egress-IP line needs a (re)fetch
+    // and launches it. The app's own traffic always goes through the
+    // tunnel — TunService never disallows its own package, in any
+    // access-control mode — so the lookup returns the node's egress IP,
+    // never the phone's real IP. Direct mode has no node, so the line is
+    // hidden there: a direct real IP is never presented as an exit IP.
+    private fun MainDesign.refreshExitIpIfNeeded(node: String?) {
+        if (node == null) {
+            if (exitIpLine != null) {
+                exitIpLine = null
+                exitIpNode = null
+                lifecycleScope.launch { setExitIpLine(null) }
+            }
+            return
+        }
+        val now = System.currentTimeMillis()
+        val stale = exitIpLine != null && now - exitIpLastSuccessMs > 600_000
+        val retryDue = exitIpLine == null && now - exitIpLastAttemptMs > 60_000
+        if (!exitIpFetching && (node != exitIpNode || stale || retryDue)) {
+            val nodeChanged = node != exitIpNode
+            exitIpFetching = true
+            exitIpLastAttemptMs = now
+            exitIpNode = node
+            lifecycleScope.launch {
+                // Never show the previous node's IP while the new lookup
+                // is in flight; the line reappears once it succeeds.
+                if (nodeChanged) {
+                    exitIpLine = null
+                    setExitIpLine(null)
+                }
+                val line = fetchExitIpLine()
+                if (line != null) exitIpLastSuccessMs = System.currentTimeMillis()
+                exitIpLine = line?.let { "\n$it" }
+                exitIpFetching = false
+                setExitIpLine(exitIpLine)
+            }
+        }
+    }
+
+    // FEATURE-EXITIP: one lookup of the tunnel's egress IP, its country
+    // and its hosting flag, via ip-api's free endpoint (HTTP-only tier;
+    // the request travels inside the VPN tunnel). Country prefers the
+    // localized name (lang=zh-CN); when the service ignores the language
+    // and returns an ASCII name, the country code is used instead. Any
+    // failure yields null and the card simply shows no second line.
+    private suspend fun fetchExitIpLine(): String? = withContext(Dispatchers.IO) {
+        val conn = URL("http://ip-api.com/json?fields=status,query,country,countryCode,hosting&lang=zh-CN")
+            .openConnection() as HttpURLConnection
+        try {
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            if (conn.responseCode != HttpURLConnection.HTTP_OK) return@withContext null
+            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            if (json.optString("status") != "success") return@withContext null
+            val ip = json.optString("query").takeIf { it.isNotEmpty() } ?: return@withContext null
+            val countryRaw = json.optString("country")
+            val country = when {
+                countryRaw.any { it.code > 127 } -> countryRaw
+                json.optString("countryCode").isNotEmpty() -> json.optString("countryCode")
+                else -> null
+            }
+            val hosting = if (json.has("hosting")) json.optBoolean("hosting") else null
+            val type = hosting?.let {
+                getString(if (it) DesignR.string.exit_ip_datacenter else DesignR.string.exit_ip_residential)
+            }
+            when {
+                country != null && type != null ->
+                    getString(DesignR.string.exit_ip_line, ip, country, type)
+                country != null ->
+                    getString(DesignR.string.exit_ip_line_no_type, ip, country)
+                else ->
+                    getString(DesignR.string.exit_ip_simple, ip)
+            }
+        } catch (_: Exception) {
+            null
+        } finally {
+            conn.disconnect()
         }
     }
 
