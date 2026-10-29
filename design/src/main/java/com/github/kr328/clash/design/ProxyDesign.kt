@@ -31,6 +31,8 @@ class ProxyDesign(
     sealed class Request {
         object ReloadAll : Request()
         object ReLaunch : Request()
+        // FEATURE-PASTE: open the paste-a-node dialog.
+        object PasteProxy : Request()
 
         data class PatchMode(val mode: TunnelState.Mode?) : Request()
         data class Reload(val index: Int) : Request()
