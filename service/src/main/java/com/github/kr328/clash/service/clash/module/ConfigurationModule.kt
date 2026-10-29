@@ -454,8 +454,28 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             return true
         }
 
-        // Block-style list: items are deeper-indented "- " lines following
-        // the proxies: line, up to the next field at <= its indent.
+        // Block-style list. Two YAML styles exist, and the old code only
+        // handled one: indented items (deeper than the proxies: key).
+        // Many Clash configs use indentless sequences, where items sit
+        // at the SAME indent as the proxies: key itself:
+        //   proxies:
+        //   - a
+        //   - b
+        // The old loop broke on the first such item (indent <= list
+        // indent), then inserted the pasted name at listIndent + "  ",
+        // producing a mixed-indent sequence:
+        //   proxies:
+        //     - "pasted"
+        //   - a
+        // Go yaml.v3 rejects the dedented "- a" with "did not find
+        // expected key", Clash.load fails, and the VPN service stops
+        // (seen in the 2026-10-30 log: staging config line 42).
+        // Fix: a "- " line at indent >= listIndent is a list item;
+        // any other non-blank line ends the list. The inserted names
+        // then use the existing items' indent, so the sequence stays
+        // uniform in both styles. An empty list still falls back to
+        // listIndent + "  ", which is valid when no items exist to
+        // conflict with.
         val listIndent = lines[proxiesLine].let { it.substring(0, it.indexOf("proxies:")) }
         var insertAt = proxiesLine + 1
         var itemIndent: String? = null
@@ -467,11 +487,11 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
                 j++
                 continue
             }
-            val indent = lj.substring(0, lj.length - lj.trimStart().length)
-            if (indent.length <= listIndent.length)
-                break
             val trimmed = lj.trimStart()
             if (!trimmed.startsWith("- "))
+                break
+            val indent = lj.substring(0, lj.length - lj.trimStart().length)
+            if (indent.length < listIndent.length)
                 break
             if (itemIndent == null) itemIndent = indent
             existing.add(unquoteYamlScalar(trimmed.removePrefix("- ").trim()))
