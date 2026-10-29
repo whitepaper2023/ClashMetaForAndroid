@@ -30,8 +30,6 @@ class NetworkSettingsActivity : BaseActivity<NetworkSettingsDesign>() {
                     when (it) {
                         NetworkSettingsDesign.Request.StartAccessControlList ->
                             startActivity(AccessControlActivity::class.intent)
-                        NetworkSettingsDesign.Request.StartBlockedApps -> // FEATURE-1
-                            startActivity(BlockedAppsActivity::class.intent)
                         NetworkSettingsDesign.Request.StartAppNodes -> // FEATURE-2
                             startActivity(AppNodeActivity::class.intent)
                     }
