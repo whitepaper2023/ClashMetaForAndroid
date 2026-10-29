@@ -65,10 +65,11 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         }
     }
 
-    // FEATURE-EXITIP: second line of the running card (egress IP, country,
-    // datacenter/residential), including its leading newline when present.
-    // Null is normalized to "" here and in init: a null binding variable
-    // would render as the literal text "null" in the subtext.
+    // FEATURE-EXITIP: egress-IP line of the running card (country,
+    // datacenter/residential), no leading newline: FEATURE-RUNCARD-LAYOUT
+    // puts it above the traffic line in the layout. Null is normalized
+    // to "" here and in init: a null binding variable would render as
+    // the literal text "null" in the subtext.
     suspend fun setExitIpLine(line: String?) {
         withContext(Dispatchers.Main) {
             binding.exitIpLine = line ?: ""
@@ -107,7 +108,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     init {
         binding.self = this
 
-        // FEATURE-EXITIP: never leave the second subtext line null (see
+        // FEATURE-RUNCARD-LAYOUT: never leave the exit-IP line null (see
         // the variable comment in design_main.xml).
         binding.exitIpLine = ""
 
