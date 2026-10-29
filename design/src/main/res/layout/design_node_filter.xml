@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- FEATURE-5 BEGIN: per-profile node filter picker page,
-     mirroring design_global_auto.xml (same included list + activity bar). -->
+     mirroring the app-node page layout (same included list + activity bar). -->
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <data>

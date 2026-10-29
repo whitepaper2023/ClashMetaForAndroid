@@ -100,6 +100,18 @@
                     app:subtext="@{mode}"
                     app:text="@string/proxy" />
 
+                <!-- FEATURE-1C BEGIN: homepage entry for app blocklist.
+                     Always visible: the page opens while stopped too
+                     (picks are stored and applied at the next load). -->
+                <com.github.kr328.clash.design.view.LargeActionLabel
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
+                    android:onClick="@{() -> self.request(Request.OpenBlockedApps)}"
+                    app:icon="@drawable/ic_outline_not_interested"
+                    app:text="@string/blocked_packages" />
+                <!-- FEATURE-1C END -->
+
                 <!-- FEATURE-2B BEGIN: homepage entry for per-app nodes.
                      Always visible: the page opens while stopped too
                      (only picking a node needs a running Clash). -->
@@ -111,18 +123,6 @@
                     app:icon="@drawable/ic_baseline_vpn_lock"
                     app:text="@string/app_node_packages" />
                 <!-- FEATURE-2B END -->
-
-                <!-- FEATURE-4B BEGIN: homepage entry for global-auto.
-                     Always visible: the picker reads the stored config,
-                     so it works while stopped too. -->
-                <com.github.kr328.clash.design.view.LargeActionLabel
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
-                    android:onClick="@{() -> self.request(Request.OpenGlobalAuto)}"
-                    app:icon="@drawable/ic_baseline_sync"
-                    app:text="@string/global_auto_short" />
-                <!-- FEATURE-4B END -->
 
                 <com.github.kr328.clash.design.view.LargeActionCard
                     android:layout_width="match_parent"
@@ -146,33 +146,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginVertical="@dimen/main_label_margin_vertical"
-                    android:onClick="@{() -> self.request(Request.OpenLogs)}"
-                    app:icon="@drawable/ic_baseline_assignment"
-                    app:text="@string/logs" />
-
-                <com.github.kr328.clash.design.view.LargeActionLabel
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
                     android:onClick="@{() -> self.request(Request.OpenSettings)}"
                     app:icon="@drawable/ic_baseline_settings"
                     app:text="@string/settings" />
-
-                <com.github.kr328.clash.design.view.LargeActionLabel
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
-                    android:onClick="@{() -> self.request(Request.OpenHelp)}"
-                    app:icon="@drawable/ic_baseline_help_center"
-                    app:text="@string/help" />
-
-                <com.github.kr328.clash.design.view.LargeActionLabel
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
-                    android:onClick="@{() -> self.request(Request.OpenAbout)}"
-                    app:icon="@drawable/ic_baseline_info"
-                    app:text="@string/about" />
             </LinearLayout>
         </ScrollView>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

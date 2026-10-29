@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- FEATURE-5 BEGIN: one node row for the per-profile filter picker,
-     mirroring adapter_global_auto.xml. The checkbox itself is not
+     mirroring the app-node adapter layout. The checkbox itself is not
      clickable; the row click toggles it (see NodeFilterAdapter). -->
 <layout xmlns:android="http://schemas.android.com/apk/res/android">
     <data>

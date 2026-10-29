@@ -64,27 +64,16 @@ class MainActivity : BaseActivity<MainDesign>() {
                         MainDesign.Request.OpenAppNodes ->
                             startActivity(AppNodeActivity::class.intent)
                         // FEATURE-2B END
-                        // FEATURE-4B BEGIN: homepage entry for global-auto.
-                        MainDesign.Request.OpenGlobalAuto ->
-                            startActivity(GlobalAutoActivity::class.intent)
-                        // FEATURE-4B END
+                        // FEATURE-1C BEGIN: homepage entry for app blocklist.
+                        MainDesign.Request.OpenBlockedApps ->
+                            startActivity(BlockedAppsActivity::class.intent)
+                        // FEATURE-1C END
                         MainDesign.Request.OpenProfiles ->
                             startActivity(ProfilesActivity::class.intent)
                         MainDesign.Request.OpenProviders ->
                             startActivity(ProvidersActivity::class.intent)
-                        MainDesign.Request.OpenLogs -> {
-                            if (LogcatService.running) {
-                                startActivity(LogcatActivity::class.intent)
-                            } else {
-                                startActivity(LogsActivity::class.intent)
-                            }
-                        }
                         MainDesign.Request.OpenSettings ->
                             startActivity(SettingsActivity::class.intent)
-                        MainDesign.Request.OpenHelp ->
-                            startActivity(HelpActivity::class.intent)
-                        MainDesign.Request.OpenAbout ->
-                            design.showAbout(queryAppVersionName())
                     }
                 }
                 if (clashRunning) {

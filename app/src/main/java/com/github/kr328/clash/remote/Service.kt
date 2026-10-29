@@ -5,13 +5,20 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.ServiceConnection
 import android.os.IBinder
+import com.github.kr328.clash.common.Global
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.common.util.intent
+import com.github.kr328.clash.design.model.LogFile
+import com.github.kr328.clash.log.SystemLogcat
 import com.github.kr328.clash.service.RemoteService
 import com.github.kr328.clash.service.remote.IRemoteService
 import com.github.kr328.clash.service.remote.unwrap
+import com.github.kr328.clash.util.logsDir
 import com.github.kr328.clash.util.unbindServiceSilent
+import java.util.Date
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class Service(private val context: Application, val crashed: () -> Unit) {
     val remote = Resource<IRemoteService>()
@@ -26,14 +33,52 @@ class Service(private val context: Application, val crashed: () -> Unit) {
         override fun onServiceDisconnected(name: ComponentName?) {
             remote.set(null)
 
-            if (System.currentTimeMillis() - lastCrashed < TOGGLE_CRASHED_INTERVAL) {
+            // FEATURE-DIAG: record every unexpected service death. The main
+            // process survives a :background crash, so it persists the death
+            // time plus the system log (Go panic / native tombstone / Java
+            // FATAL EXCEPTION) into the logs dir as a clash-<ts>.log file,
+            // which the Logs page lists and can export. Never throws: a
+            // failure here must not take down the main process as well.
+            val now = System.currentTimeMillis()
+            val rapid = now - lastCrashed < TOGGLE_CRASHED_INTERVAL
+
+            runCatching {
+                Global.launch(Dispatchers.IO) {
+                    runCatching { writeDeathRecord(now, rapid) }
+                }
+            }
+
+            if (rapid) {
                 unbind()
 
                 crashed()
             }
 
-            lastCrashed = System.currentTimeMillis()
+            lastCrashed = now
             Log.w("RemoteService killed or crashed")
+        }
+
+        private fun writeDeathRecord(now: Long, rapid: Boolean) {
+            val crash = SystemLogcat.dumpCrash()
+                .lineSequence()
+                .takeLast(3000)
+                .joinToString("\n")
+
+            val text = buildString {
+                appendLine("=== Service death record ===")
+                appendLine("time: ${Date(now)} ($now)")
+                appendLine("rapid_disconnect_within_10s: $rapid")
+                appendLine("note: RemoteService disconnected unexpectedly (killed or crashed).")
+                appendLine("--- system log (Go / DEBUG / AndroidRuntime / ClashMetaForAndroid / LwIP) ---")
+                if (crash.isBlank()) {
+                    appendLine("(system log empty: no crash record, process may have been killed by the system instead of crashing)")
+                } else {
+                    appendLine(crash)
+                }
+            }
+
+            context.logsDir.mkdirs()
+            context.logsDir.resolve(LogFile.generate().fileName).writeText(text)
         }
     }
 

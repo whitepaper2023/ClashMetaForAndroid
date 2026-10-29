@@ -69,26 +69,7 @@ class ServiceStore(context: Context) {
     )
     // FEATURE-3 END
 
-    // FEATURE-4 BEGIN: cross-provider fastest group. Off by default, so
-    // baseline configs load untouched. Takes effect at next profile load
-    // (the NetworkSettings toggle is only editable while stopped).
-    var globalAutoEnabled by store.boolean(
-        key = "global_auto_enabled",
-        defaultValue = false
-    )
-    // FEATURE-4 END
 
-    // FEATURE-4B BEGIN: manually picked subscriptions for the global-auto
-    // group (GlobalAutoActivity). Empty means "no manual pick": the old
-    // globalAutoEnabled switch then decides (on = all providers, off =
-    // no group). A non-empty set narrows the group to the intersection
-    // with the providers present in the active config; names that are no
-    // longer in the config are pruned when the page is opened.
-    var globalAutoProviders by store.stringSet(
-        key = "global_auto_providers",
-        defaultValue = emptySet()
-    )
-    // FEATURE-4B END
 
     // FEATURE-5 BEGIN: per-profile proxy filter for the Proxy page.
     // Stored as one entry per (profile, node) pair, "<uuid>=<nodeName>";
@@ -133,27 +114,51 @@ class ServiceStore(context: Context) {
     )
 }
 
-// FEATURE-2 BEGIN: encode/decode for appNodeRules entries. A package name
-// can never contain '=' (Android package names are [A-Za-z0-9._]), so the
-// first '=' is a safe separator even if the node/group name contains '='.
-fun parseAppNodeRules(raw: Set<String>): Map<String, String> {
+// FEATURE-2D BEGIN: app-node rules are stored PER PROFILE, not globally.
+// Format: "<profileUuid>=<package>=<target>" (split with limit 3, so a
+// target containing '=' survives; a UUID and a package name never
+// contain '='). The old global format "<package>=<target>" is legacy:
+// it is ignored on read and dropped on the next save, because a rule
+// recorded under one subscription must never be injected into another
+// subscription's config -- mihomo fails the whole load with
+// "proxy [...] not found" and the service stops (reported 2026-10-29:
+// AlipayHK -> instabox-2 survived a switch to a profile without that
+// node and broke the load). Switching profiles therefore shows that
+// profile's own picks (empty until the user picks for it) instead of
+// carrying stale picks over.
+fun parseAppNodeRulesForProfile(raw: Set<String>, uuid: java.util.UUID): Map<String, String> {
+    val prefix = uuid.toString() + "="
     val result = LinkedHashMap<String, String>()
     for (entry in raw) {
-        val sep = entry.indexOf('=')
-        if (sep <= 0 || sep == entry.length - 1)
+        if (!entry.startsWith(prefix))
             continue
-        result[entry.substring(0, sep)] = entry.substring(sep + 1)
+        val rest = entry.substring(prefix.length)
+        val sep = rest.indexOf('=')
+        if (sep <= 0 || sep == rest.length - 1)
+            continue
+        result[rest.substring(0, sep)] = rest.substring(sep + 1)
     }
     return result
 }
 
-fun encodeAppNodeRules(rules: Map<String, String>): Set<String> {
-    return rules.entries
+fun encodeAppNodeRulesForProfile(
+    raw: Set<String>,
+    uuid: java.util.UUID,
+    rules: Map<String, String>,
+): Set<String> {
+    val prefix = uuid.toString() + "="
+    // Keep only new-format entries of OTHER profiles; legacy entries
+    // (fewer than 3 parts, or a non-UUID first part) are dropped here.
+    val kept = raw.filter { entry ->
+        val parts = entry.split("=", limit = 3)
+        parts.size == 3 && runCatching { java.util.UUID.fromString(parts[0]) }.isSuccess &&
+            !entry.startsWith(prefix)
+    }
+    return (kept + rules.entries
         .filter { it.key.isNotBlank() && it.value.isNotBlank() }
-        .map { "${it.key}=${it.value}" }
-        .toSet()
+        .map { "$prefix${it.key}=${it.value}" }).toSet()
 }
-// FEATURE-2 END
+// FEATURE-2D END
 
 // FEATURE-5 BEGIN: encode/decode for proxyFilterRules. Format mirrors
 // appNodeRules ("<uuid>=<nodeName>"), split on the FIRST '=' only: a UUID
@@ -191,45 +196,3 @@ fun encodeProxyFilterRules(rules: Map<String, Set<String>>): Set<String> {
 }
 // FEATURE-5 END
 
-// FEATURE-4B BEGIN: proxy-provider names, moved here verbatim from
-// ConfigurationModule so the loader and GlobalAutoActivity share one
-// definition (same package, no import needed inside service.store).
-// Provider names are the exactly-2-space-indented keys directly under
-// the top-level `proxy-providers:` key. Deeper-indented lines are the
-// providers' own options and must be SKIPPED (not break on: breaking
-// at the first option line would collect only the first provider).
-// The scan ends only at the next column-0 line (the next top-level
-// key) or end of file. A flow-style `proxy-providers: {...}` line has
-// no such following lines and yields an empty list.
-fun parseProviderNames(lines: List<String>): List<String> {
-    val start = lines.indexOfFirst {
-        it.startsWith("proxy-providers:") && it.removePrefix("proxy-providers:").trim().let { rest ->
-            rest.isEmpty() || rest.startsWith("#")
-        }
-    }
-    if (start < 0)
-        return emptyList()
-
-    val result = mutableListOf<String>()
-    for (i in start + 1 until lines.size) {
-        val line = lines[i]
-        if (line.isBlank())
-            continue
-        if (!line.startsWith(" "))
-            break
-        val trimmed = line.trimStart()
-        if (trimmed.startsWith("#"))
-            continue
-        val indent = line.length - trimmed.length
-        if (indent != 2)
-            continue
-        val colon = trimmed.indexOf(':')
-        if (colon <= 0)
-            continue
-        val name = trimmed.substring(0, colon).trim().trim('"', '\'')
-        if (name.isNotEmpty())
-            result.add(name)
-    }
-    return result
-}
-// FEATURE-4B END

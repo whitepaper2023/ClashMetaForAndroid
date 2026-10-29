@@ -8,8 +8,7 @@ import com.github.kr328.clash.service.StatusProvider
 import com.github.kr328.clash.service.data.ImportedDao
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
-import com.github.kr328.clash.service.store.parseAppNodeRules
-import com.github.kr328.clash.service.store.parseProviderNames
+import com.github.kr328.clash.service.store.parseAppNodeRulesForProfile
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.sendProfileLoaded
 import kotlinx.coroutines.channels.Channel
@@ -92,15 +91,12 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
     // Runs on Dispatchers.IO (see ClashRuntime), so file IO here is safe.
     private fun resolveLoadDir(uuid: UUID): File {
         val blocked = store.blockedPackages
-        // FEATURE-2: per-app node rules ride the same staging copy.
-        val appNodeRules = parseAppNodeRules(store.appNodeRules)
+        // FEATURE-2D: per-app node rules ride the same staging copy,
+        // but only this profile's own rules -- never another profile's.
+        val appNodeRules = parseAppNodeRulesForProfile(store.appNodeRules, uuid)
         val imported = service.importedDir.resolve(uuid.toString())
-        // FEATURE-4: the global-auto group also needs the staging copy.
-        // FEATURE-4B: a non-empty manual provider pick also needs it.
         // Everything off -> original dir untouched (baseline unchanged).
-        if (blocked.isEmpty() && appNodeRules.isEmpty() && !store.globalAutoEnabled &&
-            store.globalAutoProviders.isEmpty()
-        )
+        if (blocked.isEmpty() && appNodeRules.isEmpty())
             return imported
 
         val stagingRoot = service.filesDir.resolve("staging")
@@ -123,16 +119,21 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
         stagingTmp.deleteRecursively()
         imported.copyRecursively(stagingTmp, overwrite = true)
 
+        // FEATURE-2D defence in depth: even within one profile, a
+        // subscription update can remove a node a rule still points at.
+        // Dropping such rules for this load (not persisted: the page's
+        // live-core prune owns persistence) keeps a stale pick from
+        // failing the whole load with "proxy [...] not found".
+        val safeAppNodeRules = filterAppNodeRulesToKnownTargets(
+            stagingTmp.resolve("config.yaml"), appNodeRules
+        )
+
         injectFeatureRules(
             stagingTmp.resolve("config.yaml"),
             // FEATURE-1 lines first, FEATURE-2 lines after: REJECT always
             // wins over a node rule for the same app (first match wins).
-            buildBlockRuleLines(blocked) + buildAppNodeRuleLines(appNodeRules)
+            buildBlockRuleLines(blocked) + buildAppNodeRuleLines(safeAppNodeRules)
         )
-
-        // FEATURE-4: cross-provider fastest group (separate section, no
-        // interaction with the rule lines above).
-        injectGlobalAutoGroup(stagingTmp.resolve("config.yaml"))
 
         staging.deleteRecursively()
         if (!stagingTmp.renameTo(staging))
@@ -161,6 +162,51 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             .filter { ',' !in it.value }
             .sortedBy { it.key }
             .map { "- PROCESS-NAME,${it.key},${it.value}" }
+    }
+
+    // FEATURE-2D: known proxy/group names from a config file, used only
+    // to drop rules pointing at targets this config does not have.
+    // Fail-safe by design, so a parse miss can never delete a valid
+    // rule from the load: provider-based configs are skipped outright
+    // (their node names live in provider files, not here), flow-style
+    // sections yield no names, and an empty known set keeps all rules.
+    // Only top-level `proxies:` / `proxy-groups:` sections are read;
+    // an indented `proxies:` inside a group item must not reset the
+    // section (column-0 lines are the only section boundaries).
+    private fun filterAppNodeRulesToKnownTargets(
+        configFile: File,
+        rules: Map<String, String>,
+    ): Map<String, String> {
+        if (rules.isEmpty() || !configFile.exists())
+            return rules
+        val lines = configFile.readLines()
+        if (lines.any { it.startsWith("proxy-providers:") })
+            return rules
+        val known = HashSet<String>()
+        var section: String? = null
+        for (line in lines) {
+            if (!line.startsWith(" ") && !line.startsWith("\t")) {
+                if (line.contains(":"))
+                    section = line.substringBefore(":").trim()
+                continue
+            }
+            if (section != "proxies" && section != "proxy-groups")
+                continue
+            var trimmed = line.trimStart()
+            if (trimmed.startsWith("- "))
+                trimmed = trimmed.removePrefix("- ").trimStart()
+            if (!trimmed.startsWith("name:"))
+                continue
+            var value = trimmed.removePrefix("name:").trim()
+            if (!value.startsWith("\"") && !value.startsWith("'"))
+                value = value.substringBefore("#").trim()
+            value = value.trim('"', '\'').trim()
+            if (value.isNotEmpty())
+                known.add(value)
+        }
+        if (known.isEmpty())
+            return rules
+        return rules.filterValues { it in known }
     }
     // FEATURE-2 END
 
@@ -254,132 +300,4 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
     }
     // FEATURE-1 END
 
-    // FEATURE-4 BEGIN: cross-provider fastest group ("全局自动").
-    // Appends one url-test group that `use:`s proxy-providers in the
-    // config, so mihomo's fastest selection spans subscriptions. The
-    // user then picks this group in the Proxy page like any other group.
-    // FEATURE-4B: the provider set is the user's manual pick when one
-    // exists (GlobalAutoActivity); with no pick, the old switch is the
-    // compat path (on = all providers, off = no group). Scope limits,
-    // all fail-safe (log + skip, profile still loads):
-    // - only proxy-provider configs are covered; inline-`proxies:` configs
-    //   have no provider names to `use:`, so nothing is injected;
-    // - a flow-style `proxy-groups: [...]` line cannot take an inserted
-    //   item, so it is skipped rather than rewritten;
-    // - if the config already has a group of the same name, injection is
-    //   skipped (a duplicate group name would break the load).
-    private val globalAutoGroupName = "🚀 全局自动"
-
-    private fun injectGlobalAutoGroup(configFile: File) {
-        // FEATURE-4B BEGIN: three cases, all decided before any write:
-        // switch off + no pick -> no group; switch on + no pick -> all
-        // providers; pick non-empty -> intersection with this config's
-        // providers (config order kept); empty intersection -> skip.
-        val picked = store.globalAutoProviders
-        if (!store.globalAutoEnabled && picked.isEmpty())
-            return
-        if (!configFile.exists()) {
-            Log.w("config.yaml missing, global-auto group not applied")
-            return
-        }
-
-        val lines = configFile.readLines().toMutableList()
-
-        if (lines.any { it.contains(globalAutoGroupName) }) {
-            Log.w("Global-auto group name already present, skipping injection")
-            return
-        }
-
-        val allProviders = parseProviderNames(lines)
-        if (allProviders.isEmpty()) {
-            Log.w("No proxy-providers found, global-auto group not applied")
-            return
-        }
-        val providers = if (picked.isEmpty()) {
-            allProviders
-        } else {
-            allProviders.filter { it in picked }
-        }
-        if (providers.isEmpty()) {
-            Log.w("Global-auto picks are not in this config, group not applied")
-            return
-        }
-        // FEATURE-4B END
-
-        val groupsAt = lines.indexOfFirst {
-            // Column-0 key, trailing comment allowed (a comment-only rest
-            // must NOT be mistaken for "no such section": appending a
-            // second `proxy-groups:` block would be a duplicate key and
-            // break the load).
-            it.startsWith("proxy-groups:") && it.removePrefix("proxy-groups:").trim().let { rest ->
-                rest.isEmpty() || rest.startsWith("#")
-            }
-        }
-
-        // FEATURE-2B BEGIN: match the existing proxy-groups items' indent
-        // (same YAML-mixing hazard as the rules fix: a group item at one
-        // indent followed by items at another breaks parsing). Group
-        // fields sit 2 spaces deeper than the item dash, `use:` items
-        // 4 spaces deeper. No existing item -> default 2-space base.
-        var baseIndent = "  "
-        if (groupsAt >= 0) {
-            for (i in groupsAt + 1 until lines.size) {
-                val line = lines[i]
-                if (line.isBlank())
-                    continue
-                val trimmed = line.trimStart()
-                if (trimmed.startsWith("#"))
-                    continue
-                if (trimmed.startsWith("- ")) {
-                    baseIndent = line.substring(0, line.indexOf('-'))
-                    break
-                }
-                if (!line.startsWith(" ") && !line.startsWith("\t"))
-                    break
-            }
-        }
-        val groupLines = mutableListOf(
-            "$baseIndent- name: ${yamlQuote(globalAutoGroupName)}",
-            "$baseIndent  type: url-test",
-            "$baseIndent  use:",
-        )
-        providers.forEach { groupLines.add("$baseIndent    - ${yamlQuote(it)}") }
-        groupLines.add("$baseIndent  url: https://www.gstatic.com/generate_204")
-        groupLines.add("$baseIndent  interval: 300")
-        groupLines.add("$baseIndent  lazy: false")
-        // FEATURE-2B END
-
-        if (groupsAt < 0) {
-            // No proxy-groups section at all: append a new one at the end.
-            lines.add("")
-            lines.add("proxy-groups:")
-            lines.addAll(groupLines)
-            configFile.writeText(lines.joinToString("\n") + "\n")
-            return
-        }
-
-        // Flow-style means '[' in the value part (before any comment).
-        if (lines[groupsAt].removePrefix("proxy-groups:").substringBefore("#").contains("[")) {
-            Log.w("Flow-style proxy-groups, global-auto group not applied")
-            return
-        }
-
-        // Insert at the end of the existing proxy-groups block: the first
-        // following line that is non-blank and starts at column 0 is the
-        // next top-level key (block items are indented).
-        var insertAt = groupsAt + 1
-        while (insertAt < lines.size) {
-            val line = lines[insertAt]
-            if (line.isNotBlank() && !line.startsWith(" ") && !line.startsWith("\t"))
-                break
-            insertAt++
-        }
-        lines.addAll(insertAt, groupLines)
-        configFile.writeText(lines.joinToString("\n") + "\n")
-    }
-
-    private fun yamlQuote(value: String): String {
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-    }
-    // FEATURE-4 END
 }

@@ -1,8 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="PluralsCandidate">
-    <string name="launch_name_meta">Clash Meta</string>
-    <string name="launch_name_alpha">Clash Meta Alpha</string>
-    <string name="application_name_meta">Clash Meta for Android</string>
-    <string name="application_name_alpha">Clash Meta for Android Alpha</string>
+    <string name="launch_name_meta">walash</string>
+    <string name="launch_name_alpha">walash</string>
+    <string name="application_name_meta">walash</string>
+    <string name="application_name_alpha">walash</string>
 
     <string name="stopped">Stopped</string>
     <string name="tap_to_start">Tap to start</string>
@@ -157,15 +157,10 @@
     <string name="app_node_packages_summary">为选中的应用指定走哪个节点</string>
     <string name="app_node_clear">清除指定（跟随默认）</string>
     <string name="app_node_not_specified">未指定</string>
+    <string name="app_node_search_hint">搜索应用名或包名</string>
     <string name="app_node_blocked_first">已拉黑，拉黑优先</string>
     <!-- FEATURE-2 END -->
-    <!-- FEATURE-4 BEGIN: cross-provider fastest group toggle -->
-    <string name="global_auto">全局自动（跨订阅组选最快）</string>
-    <string name="global_auto_summary">自动把全部订阅的节点放进一个测速分组，启动后在代理页选择它</string>
-    <!-- FEATURE-4 END -->
-    <!-- FEATURE-4B BEGIN: short title for the homepage entry -->
-    <string name="global_auto_short">全局自动</string>
-    <!-- FEATURE-4B END -->
+
     <!-- FEATURE-5 BEGIN: per-profile node filter (profile menu entry
          and NodeFilterActivity label share this string) -->
     <string name="proxy_filter_nodes">筛选节点</string>

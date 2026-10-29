@@ -3,7 +3,8 @@
 // pick is stored per profile UUID in ServiceStore.proxyFilterRules and is
 // display-only (it never edits the config). An empty pick means "no
 // filter, show all" for that profile. Picks are saved when leaving this
-// page, mirroring GlobalAutoActivity; no config reload is needed, because
+// page, mirroring AppNodeActivity's save-on-leave; no config reload is
+// needed, because
 // ProxyActivity applies the filter when it reloads a group.
 // Node list sources, in order:
 // (a) this profile is the active profile AND Clash is running: live core,

@@ -153,16 +153,6 @@ class NetworkSettingsDesign(
                 }
             }
             // FEATURE-2 END
-            // FEATURE-4 BEGIN: cross-provider fastest group toggle. Added
-            // to vpnDependencies so it is only editable while stopped:
-            // the group is injected at profile load time.
-            switch(
-                value = srvStore::globalAutoEnabled,
-                title = R.string.global_auto,
-                summary = R.string.global_auto_summary,
-                configure = vpnDependencies::add,
-            )
-            // FEATURE-4 END
 
             if (running) {
                 vpn.enabled = false

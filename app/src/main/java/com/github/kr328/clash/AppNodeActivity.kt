@@ -17,8 +17,8 @@ import com.github.kr328.clash.design.R
 import com.github.kr328.clash.design.model.AppInfo
 import com.github.kr328.clash.design.util.toAppInfo
 import com.github.kr328.clash.service.store.ServiceStore
-import com.github.kr328.clash.service.store.encodeAppNodeRules
-import com.github.kr328.clash.service.store.parseAppNodeRules
+import com.github.kr328.clash.service.store.encodeAppNodeRulesForProfile
+import com.github.kr328.clash.service.store.parseAppNodeRulesForProfile
 import com.github.kr328.clash.service.util.sendOverrideChanged
 import com.github.kr328.clash.util.withClash
 import kotlinx.coroutines.Dispatchers
@@ -31,8 +31,15 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
     override suspend fun main() {
         val service = ServiceStore(this)
 
+        // FEATURE-2D: rules are per profile. Without a selected profile
+        // there is nothing to show or save; the page still opens (and
+        // while stopped, clearing still works on the empty map).
+        val profileUuid = withContext(Dispatchers.IO) { service.activeProfile }
         val rules = withContext(Dispatchers.IO) {
-            parseAppNodeRules(service.appNodeRules).toMutableMap()
+            if (profileUuid != null)
+                parseAppNodeRulesForProfile(service.appNodeRules, profileUuid).toMutableMap()
+            else
+                mutableMapOf()
         }
         val blocked = withContext(Dispatchers.IO) {
             service.blockedPackages
@@ -108,8 +115,10 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
 
         defer {
             val changed = withContext(Dispatchers.IO) {
-                val changed = rules != parseAppNodeRules(service.appNodeRules)
-                service.appNodeRules = encodeAppNodeRules(rules)
+                if (profileUuid == null)
+                    return@withContext false
+                val changed = rules != parseAppNodeRulesForProfile(service.appNodeRules, profileUuid)
+                service.appNodeRules = encodeAppNodeRulesForProfile(service.appNodeRules, profileUuid, rules)
                 changed
             }
             if (clashRunning && changed) {

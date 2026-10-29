@@ -17,20 +17,19 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     enum class Request {
         ToggleStatus,
         OpenProxy,
-        // FEATURE-2B / FEATURE-4B BEGIN: homepage entries for per-app
-        // node picks and the manual global-auto subscription picker.
-        // Both pages open while stopped too (they only need the stored
-        // config / stored picks then); picking a node still requires a
+        // FEATURE-2B BEGIN: homepage entry for per-app node picks.
+        // The page opens while stopped too (it only needs the stored
+        // picks then); picking a node still requires a
         // running Clash, as before.
         OpenAppNodes,
-        OpenGlobalAuto,
-        // FEATURE-2B / FEATURE-4B END
+        // FEATURE-1C: homepage entry for the app blocklist. The page
+        // opens while stopped too (picks are stored and applied at the
+        // next load); while running they apply on leaving the page.
+        OpenBlockedApps,
+        // FEATURE-2B END
         OpenProfiles,
         OpenProviders,
-        OpenLogs,
         OpenSettings,
-        OpenHelp,
-        OpenAbout,
     }
 
     private val binding = DesignMainBinding
