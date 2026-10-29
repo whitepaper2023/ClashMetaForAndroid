@@ -22,6 +22,9 @@ import com.github.kr328.clash.util.stopClashService
 import com.github.kr328.clash.util.withClash
 import com.github.kr328.clash.util.withProfile
 import com.github.kr328.clash.core.bridge.*
+import com.github.kr328.clash.core.model.ProxySort
+import com.github.kr328.clash.core.model.TunnelState
+import com.github.kr328.clash.service.remote.IClashManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.selects.select
@@ -30,6 +33,11 @@ import java.util.concurrent.TimeUnit
 import com.github.kr328.clash.design.R as DesignR
 
 class MainActivity : BaseActivity<MainDesign>() {
+    // FEATURE-CURNODE: cached first-Selector group name, so the 1-second
+    // ticker only queries one group per tick and rescans only when the
+    // cached group stops being a Selector (e.g. after a profile switch).
+    private var currentNodeGroup: String? = null
+
     override suspend fun main() {
         val design = MainDesign(this)
 
@@ -106,6 +114,38 @@ class MainActivity : BaseActivity<MainDesign>() {
     private suspend fun MainDesign.fetchTraffic() {
         withClash {
             setForwarded(queryTrafficTotal())
+            setCurrentNode(resolveCurrentNode())
+        }
+    }
+
+    // FEATURE-CURNODE: the node shown on the running card. Global mode
+    // shows GLOBAL's current node; rule mode shows the current node of
+    // the first manually-selectable (Selector) group, which is the main
+    // selector in this app's configs; direct mode and configs without a
+    // Selector show no node. Blank `now` means nothing selected yet.
+    private suspend fun IClashManager.resolveCurrentNode(): String? {
+        return when (queryTunnelState().mode) {
+            TunnelState.Mode.Direct -> null
+            TunnelState.Mode.Global ->
+                queryProxyGroup("GLOBAL", ProxySort.Default).now.takeIf { it.isNotBlank() }
+            else -> {
+                currentNodeGroup?.let { name ->
+                    val group = queryProxyGroup(name, ProxySort.Default)
+                    if (group.type == "Selector")
+                        return group.now.takeIf { it.isNotBlank() }
+                    currentNodeGroup = null
+                }
+                for (name in queryProxyGroupNames(false)) {
+                    if (name == "GLOBAL")
+                        continue
+                    val group = queryProxyGroup(name, ProxySort.Default)
+                    if (group.type == "Selector") {
+                        currentNodeGroup = name
+                        return group.now.takeIf { it.isNotBlank() }
+                    }
+                }
+                null
+            }
         }
     }
 
