@@ -283,9 +283,9 @@
     <string name="shortcut_stop_short">停止 walash</string>
     <string name="shortcut_stop_long">停止 walash 服务</string>
     <!-- FEATURE-EXITIP: 运行中卡片第二行。 -->
-    <string name="exit_ip_line">出口 IP：%1$s · %2$s · %3$s</string>
-    <string name="exit_ip_line_no_type">出口 IP：%1$s · %2$s</string>
-    <string name="exit_ip_simple">出口 IP：%1$s</string>
+    <string name="exit_ip_line">出口：%1$s · %2$s · %3$s</string>
+    <string name="exit_ip_line_no_type">出口：%1$s · %2$s</string>
+    <string name="exit_ip_simple">出口：%1$s</string>
     <string name="exit_ip_datacenter">机房</string>
     <string name="exit_ip_residential">家庭</string>
     <!-- FEATURE-PASTE: 代理页粘贴加节点对话框。 -->
