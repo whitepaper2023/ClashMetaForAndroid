@@ -59,8 +59,11 @@ class Service(private val context: Application, val crashed: () -> Unit) {
         }
 
         private fun writeDeathRecord(now: Long, rapid: Boolean) {
+            // NOTE: Sequence has no takeLast; lines() returns a List, and
+            // only List.takeLast exists. The previous lineSequence() form
+            // failed CI compilation with "Unresolved reference 'takeLast'".
             val crash = SystemLogcat.dumpCrash()
-                .lineSequence()
+                .lines()
                 .takeLast(3000)
                 .joinToString("\n")
 
