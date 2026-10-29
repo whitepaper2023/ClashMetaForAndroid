@@ -12,6 +12,9 @@
             name="forwarded"
             type="String" />
         <variable
+            name="currentNode"
+            type="String" />
+        <variable
             name="mode"
             type="String" />
         <variable
@@ -85,7 +88,7 @@
                     android:theme="@style/AppThemeDark"
                     app:cardBackgroundColor="@{clashRunning ? colorClashStarted : colorClashStopped}"
                     app:icon="@{clashRunning ? @drawable/ic_outline_check_circle : @drawable/ic_outline_not_interested}"
-                    app:subtext="@{clashRunning ? @string/format_traffic_forwarded(forwarded) : @string/tap_to_start}"
+                    app:subtext="@{clashRunning ? (currentNode == null ? @string/format_traffic_forwarded(forwarded) : @string/format_traffic_forwarded(forwarded) + ' · ' + currentNode) : @string/tap_to_start}"
                     app:text="@{clashRunning ? @string/running : @string/stopped}">
                     <requestFocus />
                 </com.github.kr328.clash.design.view.LargeActionCard>
