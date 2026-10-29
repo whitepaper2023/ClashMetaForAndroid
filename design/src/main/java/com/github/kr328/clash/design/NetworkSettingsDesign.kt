@@ -22,7 +22,7 @@ class NetworkSettingsDesign(
     running: Boolean,
 ) : Design<NetworkSettingsDesign.Request>(context) {
     enum class Request {
-        StartAccessControlList, StartBlockedApps, // FEATURE-1: StartBlockedApps
+        StartAccessControlList,
         StartAppNodes // FEATURE-2
     }
 
@@ -133,16 +133,9 @@ class NetworkSettingsDesign(
                 }
             }
 
-            // FEATURE-1 BEGIN: entry to the app blocklist page.
-            clickable(
-                title = R.string.blocked_packages,
-                summary = R.string.blocked_packages_summary,
-            ) {
-                clicked {
-                    requests.trySend(Request.StartBlockedApps)
-                }
-            }
-            // FEATURE-1 END
+            // FEATURE-SETTINGS-NOBLOCK: the settings-page entry to the app
+            // blocklist was removed at the user's request (2026-10-29);
+            // the blocklist itself and its homepage entry stay.
             // FEATURE-2 BEGIN: entry to the per-app node page.
             clickable(
                 title = R.string.app_node_packages,
