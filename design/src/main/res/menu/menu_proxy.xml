@@ -57,4 +57,10 @@
             </group>
         </menu>
     </item>
+    <!-- FEATURE-PASTE: plain action item (not checkable, so the
+         unconditional isChecked toggle in ProxyMenu has no visual
+         effect on it). -->
+    <item
+        android:id="@+id/paste_proxy"
+        android:title="@string/paste_proxy" />
 </menu>
