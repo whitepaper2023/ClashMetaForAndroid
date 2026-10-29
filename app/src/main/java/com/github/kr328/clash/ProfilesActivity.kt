@@ -79,6 +79,10 @@ class ProfilesActivity : BaseActivity<ProfilesDesign>() {
                         is ProfilesDesign.Request.FilterNodes ->
                             startActivity(NodeFilterActivity::class.intent.setUUID(it.profile.uuid))
                         // FEATURE-5 END
+                        // FEATURE-PROFORDER: persist the dragged order.
+                        is ProfilesDesign.Request.Reorder -> {
+                            uiStore.profileOrder = it.uuids.joinToString(",")
+                        }
                         is ProfilesDesign.Request.ShareQrCode ->
                             design.showProfileQrCode(it.profile)
                     }
@@ -94,7 +98,15 @@ class ProfilesActivity : BaseActivity<ProfilesDesign>() {
 
     private suspend fun ProfilesDesign.fetch() {
         withProfile {
-            patchProfiles(queryAll())
+            // FEATURE-PROFORDER: apply the saved drag order; profiles not
+            // in it (newly created) keep their relative order at the end.
+            val order = uiStore.profileOrder.split(",")
+                .filter { it.isNotBlank() }
+                .withIndex().associate { it.value to it.index }
+            val all = queryAll()
+            patchProfiles(all.sortedWith(
+                compareBy { order[it.uuid.toString()] ?: Int.MAX_VALUE }
+            ))
         }
     }
 
