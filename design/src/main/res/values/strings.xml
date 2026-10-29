@@ -150,7 +150,6 @@
     <string name="access_control_packages_summary">Configure access permission for apps</string>
     <!-- FEATURE-1 BEGIN: app blocklist page -->
     <string name="blocked_packages">应用拉黑</string>
-    <string name="blocked_packages_summary">阻止选中的应用联网</string>
     <!-- FEATURE-1 END -->
     <!-- FEATURE-2 BEGIN: per-app designated node page -->
     <string name="app_node_packages">指定节点</string>
