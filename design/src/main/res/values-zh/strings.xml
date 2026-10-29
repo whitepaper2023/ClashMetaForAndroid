@@ -40,7 +40,7 @@
     <string name="format_traffic_forwarded">%s 已转发</string>
     <string name="global_mode">全局模式</string>
     <string name="hide_app_icon_title">隐藏应用图标</string>
-    <string name="hide_app_icon_desc">可以在拨号盘输入 *#*#252746382#*#* 打开应用</string>
+    <string name="hide_app_icon_desc">可以在拨号盘输入 *#*#1234#*#* 打开应用</string>
     <string name="hide_from_recents_title">从最近任务隐藏</string>
     <string name="hide_from_recents_desc">在最近任务中隐藏应用</string>
     <string name="history">历史</string>

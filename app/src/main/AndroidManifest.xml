@@ -242,8 +242,8 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.provider.Telephony.SECRET_CODE" />
-                <!-- 252746382 is the name of Clash Meta in T9 -->
-                <data android:scheme="android_secret_code" android:host="252746382" />
+                <!-- Dial code to reopen the app after hiding its icon -->
+                <data android:scheme="android_secret_code" android:host="1234" />
             </intent-filter>
         </receiver>
     </application>
