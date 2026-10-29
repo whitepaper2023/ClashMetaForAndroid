@@ -2,6 +2,7 @@ package com.github.kr328.clash
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.util.Log
 import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
@@ -177,7 +178,10 @@ class MainActivity : BaseActivity<MainDesign>() {
 
     // FEATURE-EXITIP: one lookup of the tunnel's egress IP, its country
     // and its hosting flag, via ip-api's free endpoint (HTTP-only tier;
-    // the request travels inside the VPN tunnel). Country prefers the
+    // the request travels inside the VPN tunnel). This HTTP call only
+    // works because network_security_config.xml permits cleartext for
+    // ip-api.com alone (FEATURE-EXITIP-CLEARTEXT); without that entry
+    // Android 9+ blocks it and every lookup fails. Country prefers the
     // localized name (lang=zh-CN); when the service ignores the language
     // and returns an ASCII name, the country code is used instead. Any
     // failure yields null and the card simply shows no second line.
@@ -209,7 +213,12 @@ class MainActivity : BaseActivity<MainDesign>() {
                 else ->
                     getString(DesignR.string.exit_ip_simple, ip)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            // FEATURE-EXITIP-CLEARTEXT: log the reason instead of
+            // swallowing it, so a future failure (e.g. cleartext still
+            // blocked) is diagnosable from logcat instead of a silently
+            // missing line. The card still just hides the line.
+            Log.w("walash-exitip", "fetchExitIpLine failed", e)
             null
         } finally {
             conn.disconnect()
