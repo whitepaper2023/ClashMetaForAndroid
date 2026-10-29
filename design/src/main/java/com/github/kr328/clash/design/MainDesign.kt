@@ -65,6 +65,16 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         }
     }
 
+    // FEATURE-EXITIP: second line of the running card (egress IP, country,
+    // datacenter/residential), including its leading newline when present.
+    // Null is normalized to "" here and in init: a null binding variable
+    // would render as the literal text "null" in the subtext.
+    suspend fun setExitIpLine(line: String?) {
+        withContext(Dispatchers.Main) {
+            binding.exitIpLine = line ?: ""
+        }
+    }
+
     suspend fun setMode(mode: TunnelState.Mode) {
         withContext(Dispatchers.Main) {
             binding.mode = when (mode) {
@@ -96,6 +106,10 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
 
     init {
         binding.self = this
+
+        // FEATURE-EXITIP: never leave the second subtext line null (see
+        // the variable comment in design_main.xml).
+        binding.exitIpLine = ""
 
         binding.colorClashStarted = context.resolveThemedColor(com.google.android.material.R.attr.colorPrimary)
         binding.colorClashStopped = context.resolveThemedColor(R.attr.colorClashStopped)
