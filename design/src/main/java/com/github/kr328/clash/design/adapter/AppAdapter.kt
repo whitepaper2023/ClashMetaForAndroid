@@ -40,6 +40,12 @@ class AppAdapter(
                 selected.add(current.packageName)
                 holder.binding.selected = true
             }
+            // FEATURE-REFRESH-BLOCK: apply the binding change synchronously.
+            // Without this the checkbox update is only scheduled for the next
+            // frame and on this page it stays stale until the page is
+            // revisited; the set itself is already updated (and saved on
+            // exit), so only the visual state lags.
+            holder.binding.executePendingBindings()
         }
     }
 
