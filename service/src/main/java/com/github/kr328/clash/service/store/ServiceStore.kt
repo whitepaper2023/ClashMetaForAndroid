@@ -69,6 +69,17 @@ class ServiceStore(context: Context) {
     )
     // FEATURE-3 END
 
+    // FEATURE-DIAG2 BEGIN: foreground-return death detection marker.
+    // Set true after a foreground-return death record is written; cleared
+    // whenever the :background service is found alive or shouldRun is
+    // false. Prevents one record per foreground return while the service
+    // stays dead and the user has not restarted it.
+    var foregroundDeathReported by store.boolean(
+        key = "foreground_death_reported",
+        defaultValue = false
+    )
+    // FEATURE-DIAG2 END
+
 
 
     // FEATURE-5 BEGIN: per-profile proxy filter for the Proxy page.
