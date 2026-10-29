@@ -11,6 +11,7 @@ import android.Manifest.permission.INTERNET
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
 import com.github.kr328.clash.core.model.ProxySort
 import com.github.kr328.clash.design.AppNodeDesign
 import com.github.kr328.clash.design.R
@@ -189,6 +190,12 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
 
         // The dialog is asynchronous: the row refresh MUST happen inside
         // the click callback, not after show() (which returns immediately).
+        // FEATURE-REFRESH-APP: the refresh must ALSO NOT use launch on the
+        // surrounding withContext(Dispatchers.Main) scope: that scope's job
+        // completes as soon as show() returns, so a launch inside a later
+        // click is cancelled before it runs and the row never refreshes
+        // until the page is revisited. lifecycleScope lives until the
+        // activity is destroyed, so the refresh always runs.
         withContext(Dispatchers.Main) {
             AlertDialog.Builder(this@AppNodeActivity)
                 .setTitle(label)
@@ -201,7 +208,7 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
                     else
                         rules[pkg] = targets[which - 1]
                     dialog.dismiss()
-                    launch {
+                    lifecycleScope.launch {
                         design.patchApps(apps, rules, blocked)
                     }
                 }
