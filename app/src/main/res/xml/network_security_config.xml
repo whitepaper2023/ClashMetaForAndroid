@@ -7,4 +7,10 @@
             <certificates src="user" />
         </trust-anchors>
     </base-config>
+    <!-- FEATURE-EXITIP-CLEARTEXT: ip-api.com free tier is HTTP-only.
+         Cleartext is permitted ONLY for this one domain; every other
+         domain keeps the default (blocked) behaviour. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">ip-api.com</domain>
+    </domain-config>
 </network-security-config>
