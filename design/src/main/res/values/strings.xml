@@ -389,4 +389,10 @@
     <string name="shortcut_start_long">Start walash service</string>
     <string name="shortcut_stop_short">Stop walash</string>
     <string name="shortcut_stop_long">Stop walash service</string>
+    <!-- FEATURE-EXITIP: second line of the running card. -->
+    <string name="exit_ip_line">Exit IP: %1$s · %2$s · %3$s</string>
+    <string name="exit_ip_line_no_type">Exit IP: %1$s · %2$s</string>
+    <string name="exit_ip_simple">Exit IP: %1$s</string>
+    <string name="exit_ip_datacenter">Datacenter</string>
+    <string name="exit_ip_residential">Residential</string>
 </resources>
