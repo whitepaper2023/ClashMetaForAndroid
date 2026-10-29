@@ -1,12 +1,29 @@
 package com.github.kr328.clash
 
+import android.content.ClipboardManager
+import android.content.Context
+import android.graphics.Color
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.core.Clash
 import com.github.kr328.clash.core.model.Proxy
 import com.github.kr328.clash.design.ProxyDesign
+import com.github.kr328.clash.design.R as DesignR
 import com.github.kr328.clash.design.model.ProxyState
 import com.github.kr328.clash.service.store.ServiceStore
+import com.github.kr328.clash.service.store.PastedProxyEntry
+import com.github.kr328.clash.service.store.encodePastedProxies
+import com.github.kr328.clash.service.store.parsePastedProxies
 import com.github.kr328.clash.service.store.parseProxyFilterRules
+import com.github.kr328.clash.service.util.sendOverrideChanged
 import com.github.kr328.clash.util.withClash
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -55,6 +72,14 @@ class ProxyActivity : BaseActivity<ProxyDesign>() {
                                 startActivity(ProxyActivity::class.intent)
 
                                 finish()
+                            } else {
+                                // FEATURE-PASTE: a paste/delete only changes
+                                // group MEMBERSHIP, not group names, so the
+                                // page must re-query rows after the service
+                                // reloads the profile (ReloadAll is
+                                // idempotent, so the duplicate on first
+                                // start is harmless).
+                                design.requests.send(ProxyDesign.Request.ReloadAll)
                             }
                         }
                         else -> Unit
@@ -162,8 +187,193 @@ class ProxyActivity : BaseActivity<ProxyDesign>() {
                                 patchOverride(Clash.OverrideSlot.Session, o)
                             }
                         }
+                        // FEATURE-PASTE: paste-a-node dialog.
+                        is ProxyDesign.Request.PasteProxy -> {
+                            showPasteDialog()
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    // FEATURE-PASTE: paste-a-node dialog. Parses the link (see
+    // PasteProxyParser), renames on collision with live names, stores the
+    // YAML block per profile, and signals the service to reload: the
+    // loader injects the block into the staging config, so the node
+    // appears in every Selector group and survives subscription updates.
+    // The dialog also lists this profile's pasted nodes with a delete
+    // button each. Parse errors are shown inline and keep the dialog
+    // open; the positive button is wired manually for exactly that
+    // reason (a default positive button would dismiss on any tap).
+    // Rows refresh through the ProfileLoaded -> ReloadAll path after the
+    // service reloads, so no direct design handle is needed here.
+    private fun showPasteDialog() {
+        val context = this@ProxyActivity
+        val density = context.resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(8))
+        }
+        val input = EditText(context).apply {
+            hint = getString(DesignR.string.paste_proxy_hint)
+        }
+        layout.addView(
+            input,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        val error = TextView(context).apply {
+            setTextColor(Color.RED)
+            visibility = View.GONE
+        }
+        layout.addView(
+            error,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        val clipboardButton = Button(context).apply {
+            text = getString(DesignR.string.paste_from_clipboard)
+        }
+        clipboardButton.setOnClickListener {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val text = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()
+            if (!text.isNullOrBlank()) {
+                input.setText(text)
+                error.visibility = View.GONE
+            } else {
+                Toast.makeText(
+                    context,
+                    DesignR.string.paste_clipboard_empty,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+        layout.addView(
+            clipboardButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        val listTitle = TextView(context).apply {
+            text = getString(DesignR.string.paste_existing)
+            setPadding(0, dp(16), 0, dp(4))
+        }
+        layout.addView(listTitle)
+        val listContainer = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        layout.addView(listContainer)
+
+        fun refreshList() {
+            listContainer.removeAllViews()
+            val store = ServiceStore(context)
+            val uuid = store.activeProfile
+            val entries = uuid?.let { parsePastedProxies(store.pastedProxies, it) }.orEmpty()
+            if (entries.isEmpty()) {
+                listContainer.addView(TextView(context).apply {
+                    text = getString(DesignR.string.paste_none)
+                })
+                return
+            }
+            for (entry in entries) {
+                val row = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                }
+                row.addView(
+                    TextView(context).apply { text = entry.name },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                )
+                val del = Button(context).apply {
+                    text = getString(DesignR.string.paste_delete)
+                }
+                del.setOnClickListener {
+                    val s = ServiceStore(context)
+                    val u = s.activeProfile ?: return@setOnClickListener
+                    val remaining = parsePastedProxies(s.pastedProxies, u)
+                        .filter { it.name != entry.name }
+                    s.pastedProxies = encodePastedProxies(s.pastedProxies, u, remaining)
+                    sendOverrideChanged()
+                    Toast.makeText(
+                        context,
+                        getString(DesignR.string.paste_deleted, entry.name),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    refreshList()
+                }
+                row.addView(del)
+                listContainer.addView(row)
+            }
+        }
+        refreshList()
+
+        val dialog = AlertDialog.Builder(context)
+            .setTitle(DesignR.string.paste_proxy)
+            .setView(layout)
+            .setPositiveButton(DesignR.string.paste_add, null)
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val link = input.text.toString()
+            if (link.isBlank()) {
+                error.text = getString(DesignR.string.paste_empty)
+                error.visibility = View.VISIBLE
+                return@setOnClickListener
+            }
+            lifecycleScope.launch {
+                val store = ServiceStore(context)
+                val uuid = store.activeProfile
+                if (uuid == null) {
+                    error.text = getString(DesignR.string.paste_no_profile)
+                    error.visibility = View.VISIBLE
+                    return@launch
+                }
+                // Live names for collision rename: group names plus every
+                // member of every group (the pasted node must not shadow
+                // or duplicate any of them).
+                val taken = HashSet<String>()
+                try {
+                    withClash {
+                        val groupNames = queryProxyGroupNames(false)
+                        taken.addAll(groupNames)
+                        for (groupName in groupNames) {
+                            val group = queryProxyGroup(groupName, uiStore.proxySort)
+                            for (proxy in group.proxies)
+                                taken.add(proxy.name)
+                        }
+                    }
+                } catch (_: Exception) {
+                    // Live names are best-effort: without them the parser
+                    // still adds the node (the loader tolerates it).
+                }
+                val parsed = try {
+                    PasteProxyParser.parse(link, taken)
+                } catch (e: PasteParseException) {
+                    error.text = e.message
+                    error.visibility = View.VISIBLE
+                    return@launch
+                }
+                val current = parsePastedProxies(store.pastedProxies, uuid)
+                store.pastedProxies = encodePastedProxies(
+                    store.pastedProxies,
+                    uuid,
+                    current + PastedProxyEntry(parsed.name, parsed.yamlLines)
+                )
+                sendOverrideChanged()
+                Toast.makeText(
+                    context,
+                    getString(DesignR.string.paste_added, parsed.name),
+                    Toast.LENGTH_SHORT
+                ).show()
+                dialog.dismiss()
             }
         }
     }
