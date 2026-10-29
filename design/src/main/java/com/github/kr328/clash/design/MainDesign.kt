@@ -56,6 +56,15 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         }
     }
 
+    // FEATURE-CURNODE: current node shown on the running card; null means
+    // no node to show (stopped, direct mode, or no selector group) and the
+    // card falls back to the traffic-only subtext.
+    suspend fun setCurrentNode(node: String?) {
+        withContext(Dispatchers.Main) {
+            binding.currentNode = node
+        }
+    }
+
     suspend fun setMode(mode: TunnelState.Mode) {
         withContext(Dispatchers.Main) {
             binding.mode = when (mode) {
