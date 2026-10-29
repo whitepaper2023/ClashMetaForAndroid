@@ -73,6 +73,10 @@ class ProxyMenu(
             R.id.dont_modify -> {
                 requests.trySend(ProxyDesign.Request.PatchMode(null))
             }
+            // FEATURE-PASTE: open the paste-a-node dialog.
+            R.id.paste_proxy -> {
+                requests.trySend(ProxyDesign.Request.PasteProxy)
+            }
             R.id.direct_mode -> {
                 requests.trySend(ProxyDesign.Request.PatchMode(TunnelState.Mode.Direct))
             }
