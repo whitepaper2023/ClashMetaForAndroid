@@ -45,8 +45,9 @@ class MainActivity : BaseActivity<MainDesign>() {
     private var currentNodeGroup: String? = null
 
     // FEATURE-EXITIP: egress-IP line on the running card. The value cached
-    // here is the full second subtext line including its leading newline,
-    // or null when no line is shown. Refresh triggers: node change, a
+    // here is the line text itself (no leading newline), or null when no
+    // line is shown. FEATURE-RUNCARD-LAYOUT: the layout puts this line
+    // above the traffic line. Refresh triggers: node change, a
     // failed lookup retried after 60 s, and a successful lookup refreshed
     // after 10 min. The lookup itself runs in lifecycleScope so the 1 s
     // ticker never stalls on the 5 s network timeouts.
@@ -169,7 +170,7 @@ class MainActivity : BaseActivity<MainDesign>() {
                 }
                 val line = fetchExitIpLine()
                 if (line != null) exitIpLastSuccessMs = System.currentTimeMillis()
-                exitIpLine = line?.let { "\n$it" }
+                exitIpLine = line
                 exitIpFetching = false
                 setExitIpLine(exitIpLine)
             }
