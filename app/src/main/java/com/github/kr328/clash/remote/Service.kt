@@ -36,7 +36,7 @@ class Service(private val context: Application, val crashed: () -> Unit) {
             // FEATURE-DIAG: record every unexpected service death. The main
             // process survives a :background crash, so it persists the death
             // time plus the system log (Go panic / native tombstone / Java
-            // FATAL EXCEPTION) into the logs dir as a clash-<ts>.log file,
+            // FATAL EXCEPTION) into the logs dir as a walash-<ts>.log file,
             // which the Logs page lists and can export. Never throws: a
             // failure here must not take down the main process as well.
             val now = System.currentTimeMillis()

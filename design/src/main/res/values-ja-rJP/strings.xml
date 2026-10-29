@@ -87,7 +87,7 @@
     <string name="ok">確定</string>
     <string name="cancel">キャンセル</string>
     <string name="reset">リセット</string>
-    <string name="clash_logcat">Clash Logcat</string>
+    <string name="clash_logcat">walash Logcat</string>
     <string name="history">履歴</string>
     <string name="logcat">Logcat</string>
     <string name="delete_all_logs">すべてのログを削除</string>
@@ -98,7 +98,7 @@
     <string name="interface_">インターフェイス</string>
     <string name="override">オーバライド</string>
     <string name="auto_restart">自動リスタート</string>
-    <string name="allow_clash_auto_restart">Clashの自動リスタートを許可</string>
+    <string name="allow_clash_auto_restart">walashの自動リスタートを許可</string>
     <string name="route_system_traffic">ルートシステムトラフィック</string>
     <string name="routing_via_vpn_service">全てのトラフィックをVPNサービス経由でルーティング</string>
     <string name="vpn_service_options">VPNサービスのオプション</string>
@@ -115,7 +115,7 @@
     <string name="access_control_mode">アクセスコントロールモード</string>
     <string name="access_control_packages">アクセスコントロールリスト</string>
     <string name="access_control_packages_summary">アプリプロファイルへのアクセスを許可</string>
-    <string name="options_unavailable">Clash実行時にこのオプションは利用できません</string>
+    <string name="options_unavailable">walash実行時にこのオプションは利用できません</string>
     <string name="general">一般</string>
     <string name="dns">DNS</string>
     <string name="prefer_h3">Prefer h3</string>
@@ -259,8 +259,8 @@
     <string name="toast_profile_updated_complete">Update profile %s completed</string>
     <string name="toast_profile_updated_failed">Update profile %1$s failed: %2$s</string>
     <string name="external_control_activity">External Control</string>
-    <string name="external_control_started">Clash.Meta service started</string>
-    <string name="external_control_stopped">Clash.Meta service stopped</string>
+    <string name="external_control_started">walash service started</string>
+    <string name="external_control_stopped">walash service stopped</string>
     <string name="force_dns_mapping">Force DNS Mapping</string>
     <string name="parse_pure_ip">Parse Pure IP</string>
     <string name="override_destination">Override Destination</string>

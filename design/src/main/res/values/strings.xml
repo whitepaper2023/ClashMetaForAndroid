@@ -113,7 +113,7 @@
     <string name="cancel">Cancel</string>
     <string name="reset">Reset</string>
 
-    <string name="clash_logcat">Clash Logcat</string>
+    <string name="clash_logcat">walash Logcat</string>
     <string name="history">History</string>
     <string name="logcat">Logcat</string>
 
@@ -127,7 +127,7 @@
     <string name="override">Override</string>
 
     <string name="auto_restart">Auto Restart</string>
-    <string name="allow_clash_auto_restart">Allow clash auto restart</string>
+    <string name="allow_clash_auto_restart">Allow walash auto restart</string>
 
     <string name="route_system_traffic">Route System Traffic</string>
     <string name="routing_via_vpn_service">Auto routing all system traffic via VpnService</string>
@@ -166,7 +166,7 @@
     <string name="proxy_filter_nodes">筛选节点</string>
     <!-- FEATURE-5 END -->
 
-    <string name="options_unavailable">Options Unavailable until Clash Stopped</string>
+    <string name="options_unavailable">Options Unavailable until walash Stopped</string>
 
     <string name="general">General</string>
     <string name="dns">DNS</string>
@@ -374,8 +374,8 @@
     <string name="toast_profile_updated_complete">Update profile %s completed</string>
     <string name="toast_profile_updated_failed">Update profile %1$s failed: %2$s</string>
     <string name="external_control_activity">External Control</string>
-    <string name="external_control_started">Clash.Meta service started</string>
-    <string name="external_control_stopped">Clash.Meta service stopped</string>
+    <string name="external_control_started">walash service started</string>
+    <string name="external_control_stopped">walash service stopped</string>
 
     <string name="hide_app_icon_title">Hide App Icon</string>
     <string name="hide_app_icon_desc">You can dial *#*#1234#*#* to open this App</string>
@@ -384,10 +384,10 @@
     <string name="import_from_qr_no_permission">Camera access is restricted. Please enable it in Settings.</string>
     <string name="import_from_qr_exception">An unhandled system exception occurred.</string>
 
-    <string name="shortcut_toggle_short">Toggle Clash</string>
-    <string name="shortcut_toggle_long">Toggle Clash service on/off</string>
-    <string name="shortcut_start_short">Start Clash</string>
-    <string name="shortcut_start_long">Start Clash service</string>
-    <string name="shortcut_stop_short">Stop Clash</string>
-    <string name="shortcut_stop_long">Stop Clash service</string>
+    <string name="shortcut_toggle_short">Toggle walash</string>
+    <string name="shortcut_toggle_long">Toggle walash service on/off</string>
+    <string name="shortcut_start_short">Start walash</string>
+    <string name="shortcut_start_long">Start walash service</string>
+    <string name="shortcut_stop_short">Stop walash</string>
+    <string name="shortcut_stop_long">Stop walash service</string>
 </resources>
