@@ -94,6 +94,21 @@ class ServiceStore(context: Context) {
     )
     // FEATURE-5 END
 
+    // FEATURE-PASTE BEGIN: nodes pasted from share links, per profile.
+    // Stored as one entry per node, "<uuid>=<base64 of the YAML block>".
+    // The YAML block is opaque here: the UI parses the link once (see
+    // PasteProxyParser) and the loader injects the block verbatim into
+    // the staging config on every load, so a pasted node survives
+    // subscription updates (the staging copy is rebuilt from the
+    // imported originals each time). Base64 uses NO_WRAP, so an entry
+    // never contains a newline; splitting on the FIRST '=' is safe (a
+    // UUID never contains '=', padding '='s stay in the value part).
+    var pastedProxies by store.stringSet(
+        key = "pasted_proxies",
+        defaultValue = emptySet()
+    )
+    // FEATURE-PASTE END
+
     var dnsHijacking by store.boolean(
         key = "dns_hijacking",
         defaultValue = true
@@ -207,3 +222,75 @@ fun encodeProxyFilterRules(rules: Map<String, Set<String>>): Set<String> {
 }
 // FEATURE-5 END
 
+
+// FEATURE-PASTE BEGIN: encode/decode for pastedProxies. One entry is
+// "<uuid>=<base64 of the YAML block>". decode returns (name, lines) per
+// node of this profile; the name is read back from the block's first
+// line ("- name: ...", double- or single-quoted, or bare). Entries of
+// other profiles are kept verbatim; malformed entries (no '=', bad
+// base64, no name line) are dropped on the next save, never on read.
+data class PastedProxyEntry(
+    val name: String,
+    val yamlLines: List<String>,
+)
+
+fun parsePastedProxies(raw: Set<String>, uuid: java.util.UUID): List<PastedProxyEntry> {
+    val prefix = uuid.toString() + "="
+    val result = ArrayList<PastedProxyEntry>()
+    for (entry in raw) {
+        if (!entry.startsWith(prefix))
+            continue
+        val encoded = entry.substring(prefix.length)
+        if (encoded.isEmpty())
+            continue
+        val text = try {
+            String(
+                android.util.Base64.decode(encoded, android.util.Base64.DEFAULT),
+                Charsets.UTF_8
+            )
+        } catch (_: IllegalArgumentException) {
+            continue
+        }
+        val lines = text.split("\n").filter { it.isNotEmpty() }
+        if (lines.isEmpty() || !lines[0].startsWith("- name:"))
+            continue
+        val name = unquoteYamlName(lines[0].removePrefix("- name:").trim())
+        if (name.isEmpty())
+            continue
+        result.add(PastedProxyEntry(name, lines))
+    }
+    return result
+}
+
+fun encodePastedProxies(
+    raw: Set<String>,
+    uuid: java.util.UUID,
+    entries: List<PastedProxyEntry>,
+): Set<String> {
+    val prefix = uuid.toString() + "="
+    val kept = raw.filter { entry ->
+        val sep = entry.indexOf('=')
+        if (sep <= 0) return@filter false
+        val first = entry.substring(0, sep)
+        runCatching { java.util.UUID.fromString(first) }.isSuccess && !entry.startsWith(prefix)
+    }
+    val encoded = entries.map { entry ->
+        prefix + android.util.Base64.encodeToString(
+            entry.yamlLines.joinToString("\n").toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+    }
+    return (kept + encoded).toSet()
+}
+
+private fun unquoteYamlName(raw: String): String {
+    if (raw.length >= 2 && raw.startsWith("\"") && raw.endsWith("\"")) {
+        return raw.substring(1, raw.length - 1)
+            .replace("\\\"", "\"")
+            .replace("\\\\", "\\")
+    }
+    if (raw.length >= 2 && raw.startsWith("'") && raw.endsWith("'"))
+        return raw.substring(1, raw.length - 1).replace("''", "'")
+    return raw.substringBefore("#").trim()
+}
+// FEATURE-PASTE END
