@@ -8,6 +8,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
 import com.github.kr328.clash.design.adapter.ProfileAdapter
 import com.github.kr328.clash.design.databinding.DesignProfilesBinding
 import com.github.kr328.clash.design.databinding.DialogProfilesMenuBinding
@@ -39,6 +41,9 @@ class ProfilesDesign(context: Context) : Design<ProfilesDesign.Request>(context)
         // FEATURE-5 END
         data class ShareQrCode(val profile: Profile) : Request()
         data class Delete(val profile: Profile) : Request()
+        // FEATURE-PROFORDER: new card order after a drag, as UUIDs in
+        // display order; the activity persists it to UiStore.
+        data class Reorder(val uuids: List<java.util.UUID>) : Request()
     }
 
     private val binding = DesignProfilesBinding
@@ -90,6 +95,38 @@ class ProfilesDesign(context: Context) : Design<ProfilesDesign.Request>(context)
             it.bindAppBarElevation(binding.activityBarLayout)
             it.applyLinearAdapter(context, adapter)
         }
+
+        // FEATURE-PROFORDER: long-press a card to drag it up or down.
+        // The adapter list is moved directly (notifyItemMoved) so the drag
+        // animates; the new order is only persisted on drop (clearView),
+        // never mid-drag, so a cancelled drag saves nothing new.
+        ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+        ) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder,
+            ): Boolean {
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION)
+                    return false
+                val moved = adapter.profiles.toMutableList()
+                val item = moved.removeAt(from)
+                moved.add(to, item)
+                adapter.profiles = moved
+                adapter.notifyItemMoved(from, to)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+                requests.trySend(Request.Reorder(adapter.profiles.map { it.uuid }))
+            }
+        }).attachToRecyclerView(binding.mainList.recyclerList)
     }
 
     private fun showMenu(profile: Profile) {
