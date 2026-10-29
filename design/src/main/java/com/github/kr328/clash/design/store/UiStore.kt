@@ -78,6 +78,14 @@ class UiStore(context: Context) {
         defaultValue = false,
     )
 
+    // FEATURE-PROFORDER: profile card order, as comma-separated UUIDs.
+    // Profiles missing from this list (e.g. newly created) sort last in
+    // their original order; the list is rewritten on every drag reorder.
+    var profileOrder: String by store.string(
+        key = "profile_order",
+        defaultValue = "",
+    )
+
     companion object {
         private const val PREFERENCE_NAME = "ui"
 
