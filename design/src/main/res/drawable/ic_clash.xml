@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FEATURE-HOMELOGO: the old Clash cat vector is replaced by the walash
-     starry-sky image (same asset as the launcher icon). This drawable is
-     used by the home header and the about page, so both lose the cat.
-     The PNG lives in this design module too because a design-module
-     layout cannot reference the app module's copy. -->
+<!-- FEATURE-HOMELOGO-ROUNDED: same starry-sky image as the launcher icon,
+     but with pre-rounded corners (transparent corners, ~100px radius on
+     the 432px asset) for the 50dp home-header/about logo. The launcher
+     icon itself stays full-bleed square (the system masks it); only this
+     design-module copy is rounded. This drawable is used by the home
+     header and the about page, so both get the rounded logo. -->
 <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:src="@drawable/ic_launcher_starry"
+    android:src="@drawable/ic_launcher_starry_rounded"
     android:gravity="fill" />
