@@ -1,0 +1,58 @@
+--- a/adapter/outbound/reject.go
++++ b/adapter/outbound/reject.go
+@@ -105,14 +105,23 @@
+ 
+ func (rw nopConn) ReadBuffer(buffer *buf.Buffer) error { return io.EOF }
+ 
+-func (rw nopConn) Write(b []byte) (int, error)          { return 0, io.EOF }
+-func (rw nopConn) WriteBuffer(buffer *buf.Buffer) error { return io.EOF }
+-func (rw nopConn) Close() error                         { return nil }
+-func (rw nopConn) LocalAddr() net.Addr                  { return nil }
+-func (rw nopConn) RemoteAddr() net.Addr                 { return nil }
+-func (rw nopConn) SetDeadline(time.Time) error          { return nil }
+-func (rw nopConn) SetReadDeadline(time.Time) error      { return nil }
+-func (rw nopConn) SetWriteDeadline(time.Time) error     { return nil }
++func (rw nopConn) Write(b []byte) (int, error) { return 0, io.EOF }
++
++// FEATURE-REJECTBUF: WriteBuffer takes ownership of the buffer. sing's copy
++// loop calls buffer.Leak() on a write error, which panics ("leaking buffer")
++// in debug-tagged builds; releasing here makes that Leak() a no-op
++// (Leak returns early once the buffer is unmanaged), so a REJECTed
++// connection can no longer abort the :background process.
++func (rw nopConn) WriteBuffer(buffer *buf.Buffer) error {
++	buffer.Release()
++	return io.EOF
++}
++func (rw nopConn) Close() error                     { return nil }
++func (rw nopConn) LocalAddr() net.Addr              { return nil }
++func (rw nopConn) RemoteAddr() net.Addr             { return nil }
++func (rw nopConn) SetDeadline(time.Time) error      { return nil }
++func (rw nopConn) SetReadDeadline(time.Time) error  { return nil }
++func (rw nopConn) SetWriteDeadline(time.Time) error { return nil }
+ 
+ var udpAddrIPv4Unspecified = &net.UDPAddr{IP: net.IPv4zero, Port: 0}
+ 
+@@ -140,11 +149,15 @@
+ 	time.Sleep(C.DefaultDropTime)
+ 	return io.EOF
+ }
+-func (rw dropConn) Write(b []byte) (int, error)          { return 0, io.EOF }
+-func (rw dropConn) WriteBuffer(buffer *buf.Buffer) error { return io.EOF }
+-func (rw dropConn) Close() error                         { return nil }
+-func (rw dropConn) LocalAddr() net.Addr                  { return nil }
+-func (rw dropConn) RemoteAddr() net.Addr                 { return nil }
+-func (rw dropConn) SetDeadline(time.Time) error          { return nil }
+-func (rw dropConn) SetReadDeadline(time.Time) error      { return nil }
+-func (rw dropConn) SetWriteDeadline(time.Time) error     { return nil }
++func (rw dropConn) Write(b []byte) (int, error) { return 0, io.EOF }
++func (rw dropConn) WriteBuffer(buffer *buf.Buffer) error {
++	// FEATURE-REJECTBUF: same ownership rule as nopConn above.
++	buffer.Release()
++	return io.EOF
++}
++func (rw dropConn) Close() error                     { return nil }
++func (rw dropConn) LocalAddr() net.Addr              { return nil }
++func (rw dropConn) RemoteAddr() net.Addr             { return nil }
++func (rw dropConn) SetDeadline(time.Time) error      { return nil }
++func (rw dropConn) SetReadDeadline(time.Time) error  { return nil }
++func (rw dropConn) SetWriteDeadline(time.Time) error { return nil }
