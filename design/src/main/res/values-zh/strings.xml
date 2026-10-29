@@ -288,4 +288,17 @@
     <string name="exit_ip_simple">出口 IP：%1$s</string>
     <string name="exit_ip_datacenter">机房</string>
     <string name="exit_ip_residential">家庭</string>
+    <!-- FEATURE-PASTE: 代理页粘贴加节点对话框。 -->
+    <string name="paste_proxy">粘贴添加节点</string>
+    <string name="paste_proxy_hint">粘贴节点链接（支持 vless、trojan、ss、vmess、hysteria2、tuic、socks、http）</string>
+    <string name="paste_from_clipboard">从剪贴板粘贴</string>
+    <string name="paste_clipboard_empty">剪贴板是空的</string>
+    <string name="paste_add">添加</string>
+    <string name="paste_empty">先粘贴一条节点链接</string>
+    <string name="paste_no_profile">当前没有激活的配置</string>
+    <string name="paste_existing">已粘贴的节点</string>
+    <string name="paste_none">还没有粘贴过的节点</string>
+    <string name="paste_delete">删除</string>
+    <string name="paste_deleted">已删除 %1$s</string>
+    <string name="paste_added">已添加 %1$s</string>
 </resources>
