@@ -14,10 +14,11 @@
         <variable
             name="currentNode"
             type="String" />
-        <!-- FEATURE-EXITIP: second line of the running card, including its
-             own leading newline when present, or "" when no exit IP is
-             known. Never left null: data binding would render a null
-             variable as the literal text "null" appended to the subtext. -->
+        <!-- FEATURE-RUNCARD-LAYOUT: first subtext line of the running
+             card (egress IP line, no leading newline), or "" when no
+             exit IP is known. Never left null: data binding would render
+             a null variable as the literal text "null" in the subtext.
+             The layout puts this line above the traffic line. -->
         <variable
             name="exitIpLine"
             type="String" />
@@ -37,6 +38,7 @@
             name="hasProviders"
             type="boolean" />
 
+        <import type="android.text.TextUtils" />
         <import type="android.view.View" />
         <import type="com.github.kr328.clash.design.MainDesign.Request" />
     </data>
@@ -95,7 +97,7 @@
                     android:theme="@style/AppThemeDark"
                     app:cardBackgroundColor="@{clashRunning ? colorClashStarted : colorClashStopped}"
                     app:icon="@{clashRunning ? @drawable/ic_outline_check_circle : @drawable/ic_outline_not_interested}"
-                    app:subtext="@{clashRunning ? @string/format_traffic_forwarded(forwarded) + exitIpLine : @string/tap_to_start}"
+                    app:subtext="@{clashRunning ? (TextUtils.isEmpty(exitIpLine) ? forwarded : exitIpLine + '\n' + forwarded) : @string/tap_to_start}"
                     app:text="@{clashRunning ? (currentNode == null ? @string/running : @string/running + ' ' + currentNode) : @string/stopped}">
                     <requestFocus />
                 </com.github.kr328.clash.design.view.LargeActionCard>
