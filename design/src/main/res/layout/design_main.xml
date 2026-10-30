@@ -14,13 +14,18 @@
         <variable
             name="currentNode"
             type="String" />
-        <!-- FEATURE-RUNCARD-LAYOUT: first subtext line of the running
-             card (egress IP line, no leading newline), or "" when no
-             exit IP is known. Never left null: data binding would render
-             a null variable as the literal text "null" in the subtext.
-             The layout puts this line above the traffic line. -->
+        <!-- FEATURE-RUNCARD-V2: the running card is four lines:
+             title "Running" alone, then node + type (eg "instabox-2
+             Datacenter"), then "IP Country/City", then bare traffic.
+             exitIpType is the datacenter/residential word ("" when
+             unknown) and exitIpAddr is "IP Country/City" ("" when no
+             exit IP is known). Never left null: data binding would
+             render a null variable as the literal text "null". -->
         <variable
-            name="exitIpLine"
+            name="exitIpType"
+            type="String" />
+        <variable
+            name="exitIpAddr"
             type="String" />
         <variable
             name="mode"
@@ -97,8 +102,8 @@
                     android:theme="@style/AppThemeDark"
                     app:cardBackgroundColor="@{clashRunning ? colorClashStarted : colorClashStopped}"
                     app:icon="@{clashRunning ? @drawable/ic_outline_check_circle : @drawable/ic_outline_not_interested}"
-                    app:subtext="@{clashRunning ? (TextUtils.isEmpty(exitIpLine) ? forwarded : exitIpLine + '\n' + forwarded) : @string/tap_to_start}"
-                    app:text="@{clashRunning ? (currentNode == null ? @string/running : @string/running + ' ' + currentNode) : @string/stopped}">
+                    app:subtext="@{clashRunning ? (currentNode == null ? forwarded : (TextUtils.isEmpty(exitIpType) ? currentNode : currentNode + ' ' + exitIpType) + '\n' + (TextUtils.isEmpty(exitIpAddr) ? forwarded : exitIpAddr + '\n' + forwarded)) : @string/tap_to_start}"
+                    app:text="@{clashRunning ? @string/running : @string/stopped}">
                     <requestFocus />
                 </com.github.kr328.clash.design.view.LargeActionCard>
 
