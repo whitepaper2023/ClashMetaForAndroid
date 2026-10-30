@@ -282,10 +282,8 @@
     <string name="shortcut_start_long">启动 walash 服务</string>
     <string name="shortcut_stop_short">停止 walash</string>
     <string name="shortcut_stop_long">停止 walash 服务</string>
-    <!-- FEATURE-EXITIP: 运行中卡片第二行。 -->
-    <string name="exit_ip_line">出口：%1$s · %2$s · %3$s</string>
-    <string name="exit_ip_line_no_type">出口：%1$s · %2$s</string>
-    <string name="exit_ip_simple">出口：%1$s</string>
+    <!-- FEATURE-EXITIP / FEATURE-RUNCARD-V2：运行中卡片节点名后的机房/
+         家庭词；IP 地址行在代码里拼成“IP 国家/城市”。 -->
     <string name="exit_ip_datacenter">机房</string>
     <string name="exit_ip_residential">家庭</string>
     <!-- FEATURE-PASTE: 代理页粘贴加节点对话框。 -->
