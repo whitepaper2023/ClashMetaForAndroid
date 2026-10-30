@@ -65,14 +65,20 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         }
     }
 
-    // FEATURE-EXITIP: egress-IP line of the running card (country,
-    // datacenter/residential), no leading newline: FEATURE-RUNCARD-LAYOUT
-    // puts it above the traffic line in the layout. Null is normalized
-    // to "" here and in init: a null binding variable would render as
-    // the literal text "null" in the subtext.
-    suspend fun setExitIpLine(line: String?) {
+    // FEATURE-RUNCARD-V2: the two egress-IP pieces of the running
+    // card. exitIpType is the datacenter/residential word shown after
+    // the node name; exitIpAddr is "IP Country/City" on its own line.
+    // Null is normalized to "" here and in init: a null binding
+    // variable would render as the literal text "null" in the subtext.
+    suspend fun setExitIpType(type: String?) {
         withContext(Dispatchers.Main) {
-            binding.exitIpLine = line ?: ""
+            binding.exitIpType = type ?: ""
+        }
+    }
+
+    suspend fun setExitIpAddr(addr: String?) {
+        withContext(Dispatchers.Main) {
+            binding.exitIpAddr = addr ?: ""
         }
     }
 
@@ -108,9 +114,10 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     init {
         binding.self = this
 
-        // FEATURE-RUNCARD-LAYOUT: never leave the exit-IP line null (see
+        // FEATURE-RUNCARD-V2: never leave the exit-IP pieces null (see
         // the variable comment in design_main.xml).
-        binding.exitIpLine = ""
+        binding.exitIpType = ""
+        binding.exitIpAddr = ""
 
         binding.colorClashStarted = context.resolveThemedColor(com.google.android.material.R.attr.colorPrimary)
         binding.colorClashStopped = context.resolveThemedColor(R.attr.colorClashStopped)
