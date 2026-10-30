@@ -44,14 +44,16 @@ class MainActivity : BaseActivity<MainDesign>() {
     // cached group stops being a Selector (e.g. after a profile switch).
     private var currentNodeGroup: String? = null
 
-    // FEATURE-EXITIP: egress-IP line on the running card. The value cached
-    // here is the line text itself (no leading newline), or null when no
-    // line is shown. FEATURE-RUNCARD-LAYOUT: the layout puts this line
-    // above the traffic line. Refresh triggers: node change, a
+    // FEATURE-EXITIP: egress-IP pieces on the running card.
+    // FEATURE-RUNCARD-V2 splits the old single line in two: exitIpType
+    // is the datacenter/residential word shown after the node name,
+    // exitIpAddr is "IP Country/City" on its own line. Either is null
+    // when its piece is not shown. Refresh triggers: node change, a
     // failed lookup retried after 60 s, and a successful lookup refreshed
     // after 10 min. The lookup itself runs in lifecycleScope so the 1 s
     // ticker never stalls on the 5 s network timeouts.
-    private var exitIpLine: String? = null
+    private var exitIpType: String? = null
+    private var exitIpAddr: String? = null
     private var exitIpNode: String? = null
     private var exitIpLastAttemptMs: Long = 0L
     private var exitIpLastSuccessMs: Long = 0L
@@ -146,16 +148,20 @@ class MainActivity : BaseActivity<MainDesign>() {
     // hidden there: a direct real IP is never presented as an exit IP.
     private fun MainDesign.refreshExitIpIfNeeded(node: String?) {
         if (node == null) {
-            if (exitIpLine != null) {
-                exitIpLine = null
+            if (exitIpType != null || exitIpAddr != null) {
+                exitIpType = null
+                exitIpAddr = null
                 exitIpNode = null
-                lifecycleScope.launch { setExitIpLine(null) }
+                lifecycleScope.launch {
+                    setExitIpType(null)
+                    setExitIpAddr(null)
+                }
             }
             return
         }
         val now = System.currentTimeMillis()
-        val stale = exitIpLine != null && now - exitIpLastSuccessMs > 600_000
-        val retryDue = exitIpLine == null && now - exitIpLastAttemptMs > 60_000
+        val stale = exitIpAddr != null && now - exitIpLastSuccessMs > 600_000
+        val retryDue = exitIpAddr == null && now - exitIpLastAttemptMs > 60_000
         if (!exitIpFetching && (node != exitIpNode || stale || retryDue)) {
             val nodeChanged = node != exitIpNode
             exitIpFetching = true
@@ -163,31 +169,38 @@ class MainActivity : BaseActivity<MainDesign>() {
             exitIpNode = node
             lifecycleScope.launch {
                 // Never show the previous node's IP while the new lookup
-                // is in flight; the line reappears once it succeeds.
+                // is in flight; the lines reappear once it succeeds.
                 if (nodeChanged) {
-                    exitIpLine = null
-                    setExitIpLine(null)
+                    exitIpType = null
+                    exitIpAddr = null
+                    setExitIpType(null)
+                    setExitIpAddr(null)
                 }
-                val line = fetchExitIpLine()
-                if (line != null) exitIpLastSuccessMs = System.currentTimeMillis()
-                exitIpLine = line
+                val info = fetchExitIpInfo()
+                if (info != null) exitIpLastSuccessMs = System.currentTimeMillis()
+                exitIpType = info?.first
+                exitIpAddr = info?.second
                 exitIpFetching = false
-                setExitIpLine(exitIpLine)
+                setExitIpType(exitIpType)
+                setExitIpAddr(exitIpAddr)
             }
         }
     }
 
-    // FEATURE-EXITIP: one lookup of the tunnel's egress IP, its country
-    // and its hosting flag, via ip-api's free endpoint (HTTP-only tier;
+    // FEATURE-EXITIP: one lookup of the tunnel's egress IP, its country,
+    // city and hosting flag, via ip-api's free endpoint (HTTP-only tier;
     // the request travels inside the VPN tunnel). This HTTP call only
     // works because network_security_config.xml permits cleartext for
     // ip-api.com alone (FEATURE-EXITIP-CLEARTEXT); without that entry
     // Android 9+ blocks it and every lookup fails. Country prefers the
     // localized name (lang=zh-CN); when the service ignores the language
-    // and returns an ASCII name, the country code is used instead. Any
-    // failure yields null and the card simply shows no second line.
-    private suspend fun fetchExitIpLine(): String? = withContext(Dispatchers.IO) {
-        val conn = URL("http://ip-api.com/json?fields=status,query,country,countryCode,hosting&lang=zh-CN")
+    // and returns an ASCII name, the country code is used instead.
+    // FEATURE-RUNCARD-V2: returns (type, addr), where type is the
+    // datacenter/residential word (or null when hosting is unknown)
+    // and addr is "IP Country/City", "IP Country", or just "IP". Any
+    // failure yields null and the card simply shows no IP lines.
+    private suspend fun fetchExitIpInfo(): Pair<String?, String?>? = withContext(Dispatchers.IO) {
+        val conn = URL("http://ip-api.com/json?fields=status,query,country,countryCode,city,regionName,hosting&lang=zh-CN")
             .openConnection() as HttpURLConnection
         try {
             conn.connectTimeout = 5000
@@ -202,24 +215,24 @@ class MainActivity : BaseActivity<MainDesign>() {
                 json.optString("countryCode").isNotEmpty() -> json.optString("countryCode")
                 else -> null
             }
+            val city = json.optString("city").takeIf { it.isNotEmpty() }
+                ?: json.optString("regionName").takeIf { it.isNotEmpty() }
+            val addr = when {
+                country != null && city != null -> "$ip $country/$city"
+                country != null -> "$ip $country"
+                else -> ip
+            }
             val hosting = if (json.has("hosting")) json.optBoolean("hosting") else null
             val type = hosting?.let {
                 getString(if (it) DesignR.string.exit_ip_datacenter else DesignR.string.exit_ip_residential)
             }
-            when {
-                country != null && type != null ->
-                    getString(DesignR.string.exit_ip_line, ip, country, type)
-                country != null ->
-                    getString(DesignR.string.exit_ip_line_no_type, ip, country)
-                else ->
-                    getString(DesignR.string.exit_ip_simple, ip)
-            }
+            type to addr
         } catch (e: Exception) {
             // FEATURE-EXITIP-CLEARTEXT: log the reason instead of
             // swallowing it, so a future failure (e.g. cleartext still
-            // blocked) is diagnosable from logcat instead of a silently
-            // missing line. The card still just hides the line.
-            Log.w("walash-exitip", "fetchExitIpLine failed", e)
+            // blocked) is diagnosable from logcat instead of silently
+            // missing lines. The card still just hides the IP lines.
+            Log.w("walash-exitip", "fetchExitIpInfo failed", e)
             null
         } finally {
             conn.disconnect()
