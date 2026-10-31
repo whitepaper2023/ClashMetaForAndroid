@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- FEATURE-HOMELOGO-ROUNDED: same KO icon as the launcher icon,
-     but with pre-rounded corners (transparent corners, ~100px radius on
-     the 432px asset) for the 50dp home-header/about logo. The launcher
-     icon itself stays full-bleed square (the system masks it); only this
-     design-module copy is rounded. This drawable is used by the home
-     header and the about page, so both get the rounded logo. -->
+     but full-bleed with pre-rounded corners (transparent corners,
+     ~100px radius on the 432px asset) for the 50dp home-header/about
+     logo. The launcher icon itself is a padded version (KO artwork in
+     the central 2/3, black padding around it) so launcher masks do not
+     crop it; only this design-module copy stays full-bleed rounded.
+     This drawable is used by the home header and the about page, so
+     both get the rounded logo. -->
 <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
     android:src="@drawable/ic_launcher_ko_rounded"
     android:gravity="fill" />
