@@ -12,13 +12,13 @@
     <string name="tun_stack_mips">Mips</string>
     <string name="tun_stack_mode">Chế độ xếp chồng dữ liệu</string>
     <string name="tun_stack_system">Hệ thống</string>
-    <string name="application_name_alpha">walash</string>
-    <string name="application_name_meta">walash</string>
+    <string name="application_name_alpha">bash</string>
+    <string name="application_name_meta">bash</string>
     <string name="clash_meta_core">Clash Meta Core</string>
     <string name="clash_meta_for_android">Clash Meta</string>
     <string name="clash_meta_wiki">Clash Meta Wiki</string>
-    <string name="launch_name_alpha">walash</string>
-    <string name="launch_name_meta">walash</string>
+    <string name="launch_name_alpha">bash</string>
+    <string name="launch_name_meta">bash</string>
     <string name="_new">Mới</string>
     <string name="about">Thông tin</string>
     <string name="accept_http_content">Chỉ chấp nhận http(s)</string>
@@ -40,7 +40,7 @@
     <string name="allow_all_apps">Cho phép tất cả các ứng dụng</string>
     <string name="allow_bypass">Cho phép bỏ qua</string>
     <string name="allow_bypass_summary">Cho phép tất cả các ứng dụng bỏ qua kết nối VPN này</string>
-    <string name="allow_clash_auto_restart">Cho phép walash tự khởi động lại</string>
+    <string name="allow_clash_auto_restart">Cho phép bash tự khởi động lại</string>
     <string name="allow_lan">Cho phép mạng LAN</string>
     <string name="allow_selected_apps">Cho phép các ứng dụng đã chọn</string>
     <string name="always_dark">Luôn tối</string>
@@ -64,7 +64,7 @@
     <string name="bypass_private_network">Bỏ qua mạng riêng</string>
     <string name="bypass_private_network_summary">Bỏ qua các địa chỉ mạng riêng</string>
     <string name="cancel">Huỷ bỏ</string>
-    <string name="clash_logcat">Nhật ký walash</string>
+    <string name="clash_logcat">Nhật ký bash</string>
     <string name="close">Đóng</string>
     <string name="compatible">Tương thích</string>
     <string name="copied">Đã sao chép</string>
@@ -177,7 +177,7 @@
     <string name="not_selectable">Không thể chọn</string>
     <string name="not_selected">Trống. Nhấn vào để thêm</string>
     <string name="ok">OK</string>
-    <string name="options_unavailable">Tùy chọn không khả dụng cho đến khi walash ngắt kết nối</string>
+    <string name="options_unavailable">Tùy chọn không khả dụng cho đến khi bash ngắt kết nối</string>
     <string name="override">Cài đặt thêm</string>
     <string name="package_name">Tên gói</string>
     <string name="profile">Cấu hình</string>
