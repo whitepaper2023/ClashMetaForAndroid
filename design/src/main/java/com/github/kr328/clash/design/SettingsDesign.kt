@@ -21,7 +21,7 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         // Moved here from the homepage: Help, Logs and About now live
         // in Settings.
         OpenHelp, OpenLogs, OpenAbout,
-        // FEATURE-BACKUP: export/import of profiles + walash settings.
+        // FEATURE-BACKUP: export/import of profiles + bash settings.
         Backup,
     }
 
