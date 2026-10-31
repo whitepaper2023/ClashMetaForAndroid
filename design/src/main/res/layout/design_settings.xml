@@ -56,6 +56,14 @@
                     app:icon="@drawable/ic_baseline_meta"
                     app:text="@string/meta_features" />
 
+                <!-- FEATURE-BACKUP: export/import entry in Settings. -->
+                <com.github.kr328.clash.design.view.ActionLabel
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:onClick="@{() -> self.request(Request.Backup)}"
+                    app:icon="@drawable/ic_baseline_save"
+                    app:text="@string/backup" />
+
                 <com.github.kr328.clash.design.view.ActionLabel
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
