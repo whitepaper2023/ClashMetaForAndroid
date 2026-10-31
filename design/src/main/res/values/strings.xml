@@ -121,6 +121,24 @@
     <string name="delete_all_logs_warn">All historical logs will *LOST*</string>
     <string name="file_exported">File Exported</string>
 
+    <!-- FEATURE-BACKUP: export/import in Settings. -->
+    <string name="backup">Backup</string>
+    <string name="backup_dialog_message">Export saves all saved profiles and walash settings (blocked apps, per-app nodes, pasted nodes, proxy filters) into one password-encrypted file that only walash can open. A backup contains subscription URLs and keys, so keep the file and its password private. If you forget the password, walash cannot recover the backup. Import adds the profiles as new ones and never deletes existing profiles; per-app settings are merged, global settings are overwritten.</string>
+    <string name="backup_export_password_title">Set backup password</string>
+    <string name="backup_import_password_title">Enter backup password</string>
+    <string name="backup_password">Password</string>
+    <string name="backup_password_confirm">Confirm password</string>
+    <string name="backup_password_warning">The backup is encrypted with this password. If you forget it, walash cannot recover the backup on any device.</string>
+    <string name="backup_password_mismatch">Passwords do not match</string>
+    <string name="backup_wrong_password">Wrong password, or the backup file is damaged</string>
+    <string name="backup_export">Export backup</string>
+    <string name="backup_import">Import backup</string>
+    <string name="backup_exported">Backup exported: %1$d profiles</string>
+    <string name="backup_import_confirm">Import these profiles as new ones: %1$s. Existing profiles will not be deleted; per-app settings will be merged and global settings overwritten. Continue?</string>
+    <string name="backup_imported">Backup imported: %1$d profiles</string>
+    <string name="backup_import_partial">Backup imported: %1$d profiles; failed: %2$s. Failed profiles were left as pending profiles and can be committed later from the Profiles page.</string>
+    <string name="backup_invalid_file">Not a valid walash backup file</string>
+
     <string name="behavior">Behavior</string>
     <string name="network">Network</string>
     <string name="interface_">Interface</string>
