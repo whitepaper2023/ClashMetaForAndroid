@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FEATURE-HOMELOGO-ROUNDED: same starry-sky image as the launcher icon,
+<!-- FEATURE-HOMELOGO-ROUNDED: same KO icon as the launcher icon,
      but with pre-rounded corners (transparent corners, ~100px radius on
      the 432px asset) for the 50dp home-header/about logo. The launcher
      icon itself stays full-bleed square (the system masks it); only this
      design-module copy is rounded. This drawable is used by the home
      header and the about page, so both get the rounded logo. -->
 <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:src="@drawable/ic_launcher_starry_rounded"
+    android:src="@drawable/ic_launcher_ko_rounded"
     android:gravity="fill" />
