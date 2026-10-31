@@ -232,7 +232,7 @@ class MainActivity : BaseActivity<MainDesign>() {
             // swallowing it, so a future failure (e.g. cleartext still
             // blocked) is diagnosable from logcat instead of silently
             // missing lines. The card still just hides the IP lines.
-            Log.w("walash-exitip", "fetchExitIpInfo failed", e)
+            Log.w("bash-exitip", "fetchExitIpInfo failed", e)
             null
         } finally {
             conn.disconnect()
