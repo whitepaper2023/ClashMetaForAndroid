@@ -390,6 +390,10 @@
     <string name="geofile_imported">%1$s imported</string>
     <string name="toast_profile_updated_complete">Update profile %s completed</string>
     <string name="toast_profile_updated_failed">Update profile %1$s failed: %2$s</string>
+    <!-- FEATURE-PROFILE-AUTORESTART BEGIN -->
+    <string name="toast_profile_restarting">Profile switched, restarting VPN…</string>
+    <string name="toast_profile_restart_failed">Failed to restart VPN after switching profile, please stop and start VPN manually</string>
+    <!-- FEATURE-PROFILE-AUTORESTART END -->
     <string name="external_control_activity">External Control</string>
     <string name="external_control_started">bash service started</string>
     <string name="external_control_stopped">bash service stopped</string>

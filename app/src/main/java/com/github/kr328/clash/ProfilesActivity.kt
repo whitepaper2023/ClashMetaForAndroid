@@ -7,11 +7,16 @@ import android.content.IntentFilter
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.common.util.setUUID
 import com.github.kr328.clash.common.util.ticker
+import androidx.activity.result.contract.ActivityResultContracts
 import com.github.kr328.clash.design.ProfilesDesign
 import com.github.kr328.clash.design.ui.ToastDuration
 import com.github.kr328.clash.service.model.Profile
+import com.github.kr328.clash.util.startClashService
+import com.github.kr328.clash.util.stopClashService
 import com.github.kr328.clash.util.withProfile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
@@ -64,9 +69,71 @@ class ProfilesActivity : BaseActivity<ProfilesDesign>() {
                             startActivity(PropertiesActivity::class.intent.setUUID(it.profile.uuid))
                         is ProfilesDesign.Request.Active -> {
                             withProfile {
-                                if (it.profile.imported)
+                                if (it.profile.imported) {
+                                    // FEATURE-PROFILE-AUTORESTART BEGIN: switching profile while
+                                    // VPN is running must actually switch the core. Previously
+                                    // setActive only changed the stored active profile and
+                                    // refreshed the UI; the running core kept the old profile
+                                    // until the user stopped and started VPN manually, so a
+                                    // switch from the independent config to the main config
+                                    // kept using the openworld node. Restart here, and only
+                                    // here: no restart when VPN is not running (next start
+                                    // loads the new profile anyway), and no restart when the
+                                    // tapped profile is already active.
+                                    val oldActive = queryActive()?.uuid
                                     setActive(it.profile)
-                                else
+                                    if (clashRunning && oldActive != null &&
+                                        oldActive != it.profile.uuid
+                                    ) {
+                                        // withProfile runs on Dispatchers.IO; run the
+                                        // restart on Main like AccessControlActivity does,
+                                        // so service start/stop and the VPN prompt run in
+                                        // the same thread context as a manual start.
+                                        withContext(Dispatchers.Main) {
+                                            design.showToast(
+                                                R.string.toast_profile_restarting,
+                                                ToastDuration.Long
+                                            )
+                                            stopClashService()
+                                            var waited = 0
+                                            while (clashRunning && waited < 10000) {
+                                                delay(200)
+                                                waited += 200
+                                            }
+                                            if (!clashRunning) {
+                                                try {
+                                                    val vpnRequest = startClashService()
+                                                    if (vpnRequest != null) {
+                                                        val result = startActivityForResult(
+                                                            ActivityResultContracts.StartActivityForResult(),
+                                                            vpnRequest
+                                                        )
+                                                        if (result.resultCode == RESULT_OK)
+                                                            startClashService()
+                                                        else
+                                                            design.showToast(
+                                                                R.string.toast_profile_restart_failed,
+                                                                ToastDuration.Long
+                                                            )
+                                                    }
+                                                } catch (e: CancellationException) {
+                                                    throw e
+                                                } catch (e: Exception) {
+                                                    design.showToast(
+                                                        R.string.unable_to_start_vpn,
+                                                        ToastDuration.Long
+                                                    )
+                                                }
+                                            } else {
+                                                design.showToast(
+                                                    R.string.toast_profile_restart_failed,
+                                                    ToastDuration.Long
+                                                )
+                                            }
+                                        }
+                                    }
+                                    // FEATURE-PROFILE-AUTORESTART END
+                                } else
                                     design.requestSave(it.profile)
                             }
                         }

@@ -288,6 +288,10 @@
     <string name="geofile_imported">%1$s 已导入</string>
     <string name="toast_profile_updated_complete">更新配置 %s 成功</string>
     <string name="toast_profile_updated_failed">更新配置 %1$s 失败：%2$s</string>
+    <!-- FEATURE-PROFILE-AUTORESTART BEGIN -->
+    <string name="toast_profile_restarting">已切换配置，正在重启 VPN…</string>
+    <string name="toast_profile_restart_failed">切换配置后重启 VPN 失败，请手动停止再启动 VPN</string>
+    <!-- FEATURE-PROFILE-AUTORESTART END -->
     <string name="external_control_activity">外部控制</string>
     <string name="external_control_started">bash 服务已启动</string>
     <string name="external_control_stopped">bash 服务已停止</string>
