@@ -35,6 +35,24 @@
     <string name="external">外部</string>
     <string name="file">文件</string>
     <string name="file_exported">文件已导出</string>
+
+    <!-- FEATURE-BACKUP：设置页备份导入。 -->
+    <string name="backup">备份</string>
+    <string name="backup_dialog_message">导出会把全部已保存配置和 walash 设置（应用拉黑、指定节点、粘贴节点、节点筛选）存成一个密码加密文件，只有 walash 能打开。备份里含订阅链接和密钥，文件和密码都要妥善保管，不要外传。密码一旦忘了，walash 就找不回来了。导入会把配置以新增方式加进来，不会删除已有配置；按应用的设置会合并，全局设置会被覆盖。</string>
+    <string name="backup_export_password_title">设置备份密码</string>
+    <string name="backup_import_password_title">输入备份密码</string>
+    <string name="backup_password">密码</string>
+    <string name="backup_password_confirm">确认密码</string>
+    <string name="backup_password_warning">备份用这个密码加密。密码一旦忘了，walash 在任何设备上都找不回来，备份就打不开了。</string>
+    <string name="backup_password_mismatch">两次密码不一致</string>
+    <string name="backup_wrong_password">密码不对，或者备份文件已损坏</string>
+    <string name="backup_export">导出备份</string>
+    <string name="backup_import">导入备份</string>
+    <string name="backup_exported">备份已导出，共 %1$d 个配置</string>
+    <string name="backup_import_confirm">将以下配置以新增方式导入：%1$s。已有配置不会被删除，按应用的设置会合并，全局设置会被覆盖。确定导入吗？</string>
+    <string name="backup_imported">备份已导入，共 %1$d 个配置</string>
+    <string name="backup_import_partial">备份已导入 %1$d 个配置；失败：%2$s。失败的配置已留为待提交状态，联网后可在配置页提交完成。</string>
+    <string name="backup_invalid_file">不是有效的 walash 备份文件</string>
     <string name="format_minutes">%d 分钟</string>
     <string name="format_profile_activated">%s 已激活</string>
     <string name="format_traffic_forwarded">%s 已转发</string>
