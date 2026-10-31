@@ -68,9 +68,9 @@ class SettingsActivity : BaseActivity<SettingsDesign>() {
                 // and the file is not a zip (other apps must not be
                 // able to open it as one).
                 val password = design.showBackupExportPassword() ?: return
-                val fileName = "walash-backup-" +
+                val fileName = "bash-backup-" +
                     SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) +
-                    ".walashbackup"
+                    ".bashbackup"
                 val uri = startActivityForResult(
                     ActivityResultContracts.CreateDocument("application/octet-stream"),
                     fileName
