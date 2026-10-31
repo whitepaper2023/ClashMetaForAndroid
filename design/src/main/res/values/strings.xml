@@ -1,8 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="PluralsCandidate">
-    <string name="launch_name_meta">walash</string>
-    <string name="launch_name_alpha">walash</string>
-    <string name="application_name_meta">walash</string>
-    <string name="application_name_alpha">walash</string>
+    <string name="launch_name_meta">bash</string>
+    <string name="launch_name_alpha">bash</string>
+    <string name="application_name_meta">bash</string>
+    <string name="application_name_alpha">bash</string>
 
     <string name="stopped">Stopped</string>
     <string name="tap_to_start">Tap to start</string>
@@ -113,7 +113,7 @@
     <string name="cancel">Cancel</string>
     <string name="reset">Reset</string>
 
-    <string name="clash_logcat">walash Logcat</string>
+    <string name="clash_logcat">bash Logcat</string>
     <string name="history">History</string>
     <string name="logcat">Logcat</string>
 
@@ -123,12 +123,12 @@
 
     <!-- FEATURE-BACKUP: export/import in Settings. -->
     <string name="backup">Backup</string>
-    <string name="backup_dialog_message">Export saves all saved profiles and walash settings (blocked apps, per-app nodes, pasted nodes, proxy filters) into one password-encrypted file that only walash can open. A backup contains subscription URLs and keys, so keep the file and its password private. If you forget the password, walash cannot recover the backup. Import adds the profiles as new ones and never deletes existing profiles; per-app settings are merged, global settings are overwritten.</string>
+    <string name="backup_dialog_message">Export saves all saved profiles and bash settings (blocked apps, per-app nodes, pasted nodes, proxy filters) into one password-encrypted file that only bash can open. A backup contains subscription URLs and keys, so keep the file and its password private. If you forget the password, bash cannot recover the backup. Import adds the profiles as new ones and never deletes existing profiles; per-app settings are merged, global settings are overwritten.</string>
     <string name="backup_export_password_title">Set backup password</string>
     <string name="backup_import_password_title">Enter backup password</string>
     <string name="backup_password">Password</string>
     <string name="backup_password_confirm">Confirm password</string>
-    <string name="backup_password_warning">The backup is encrypted with this password. If you forget it, walash cannot recover the backup on any device.</string>
+    <string name="backup_password_warning">The backup is encrypted with this password. If you forget it, bash cannot recover the backup on any device.</string>
     <string name="backup_password_mismatch">Passwords do not match</string>
     <string name="backup_wrong_password">Wrong password, or the backup file is damaged</string>
     <string name="backup_export">Export backup</string>
@@ -137,7 +137,7 @@
     <string name="backup_import_confirm">Import these profiles as new ones: %1$s. Existing profiles will not be deleted; per-app settings will be merged and global settings overwritten. Continue?</string>
     <string name="backup_imported">Backup imported: %1$d profiles</string>
     <string name="backup_import_partial">Backup imported: %1$d profiles; failed: %2$s. Failed profiles were left as pending profiles and can be committed later from the Profiles page.</string>
-    <string name="backup_invalid_file">Not a valid walash backup file</string>
+    <string name="backup_invalid_file">Not a valid bash backup file</string>
 
     <string name="behavior">Behavior</string>
     <string name="network">Network</string>
@@ -145,7 +145,7 @@
     <string name="override">Override</string>
 
     <string name="auto_restart">Auto Restart</string>
-    <string name="allow_clash_auto_restart">Allow walash auto restart</string>
+    <string name="allow_clash_auto_restart">Allow bash auto restart</string>
 
     <string name="route_system_traffic">Route System Traffic</string>
     <string name="routing_via_vpn_service">Auto routing all system traffic via VpnService</string>
@@ -183,7 +183,7 @@
     <string name="proxy_filter_nodes">筛选节点</string>
     <!-- FEATURE-5 END -->
 
-    <string name="options_unavailable">Options Unavailable until walash Stopped</string>
+    <string name="options_unavailable">Options Unavailable until bash Stopped</string>
 
     <string name="general">General</string>
     <string name="dns">DNS</string>
@@ -391,8 +391,8 @@
     <string name="toast_profile_updated_complete">Update profile %s completed</string>
     <string name="toast_profile_updated_failed">Update profile %1$s failed: %2$s</string>
     <string name="external_control_activity">External Control</string>
-    <string name="external_control_started">walash service started</string>
-    <string name="external_control_stopped">walash service stopped</string>
+    <string name="external_control_started">bash service started</string>
+    <string name="external_control_stopped">bash service stopped</string>
 
     <string name="hide_app_icon_title">Hide App Icon</string>
     <string name="hide_app_icon_desc">You can dial *#*#1234#*#* to open this App</string>
@@ -401,12 +401,12 @@
     <string name="import_from_qr_no_permission">Camera access is restricted. Please enable it in Settings.</string>
     <string name="import_from_qr_exception">An unhandled system exception occurred.</string>
 
-    <string name="shortcut_toggle_short">Toggle walash</string>
-    <string name="shortcut_toggle_long">Toggle walash service on/off</string>
-    <string name="shortcut_start_short">Start walash</string>
-    <string name="shortcut_start_long">Start walash service</string>
-    <string name="shortcut_stop_short">Stop walash</string>
-    <string name="shortcut_stop_long">Stop walash service</string>
+    <string name="shortcut_toggle_short">Toggle bash</string>
+    <string name="shortcut_toggle_long">Toggle bash service on/off</string>
+    <string name="shortcut_start_short">Start bash</string>
+    <string name="shortcut_start_long">Start bash service</string>
+    <string name="shortcut_stop_short">Stop bash</string>
+    <string name="shortcut_stop_long">Stop bash service</string>
     <!-- FEATURE-EXITIP / FEATURE-RUNCARD-V2: node-type word shown after
          the node name on the running card; the IP address line is built
          in code as "IP Country/City". -->
