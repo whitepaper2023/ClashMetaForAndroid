@@ -11,7 +11,7 @@
     <string name="bypass_private_network">绕过私有网络</string>
     <string name="bypass_private_network_summary">绕过私有网络地址</string>
     <string name="cancel">取消</string>
-    <string name="clash_logcat">walash 日志捕捉工具</string>
+    <string name="clash_logcat">bash 日志捕捉工具</string>
     <string name="create_profile">创建配置</string>
     <string name="dark_mode">暗黑模式</string>
     <string name="default_">默认</string>
@@ -38,12 +38,12 @@
 
     <!-- FEATURE-BACKUP：设置页备份导入。 -->
     <string name="backup">备份</string>
-    <string name="backup_dialog_message">导出会把全部已保存配置和 walash 设置（应用拉黑、指定节点、粘贴节点、节点筛选）存成一个密码加密文件，只有 walash 能打开。备份里含订阅链接和密钥，文件和密码都要妥善保管，不要外传。密码一旦忘了，walash 就找不回来了。导入会把配置以新增方式加进来，不会删除已有配置；按应用的设置会合并，全局设置会被覆盖。</string>
+    <string name="backup_dialog_message">导出会把全部已保存配置和 bash 设置（应用拉黑、指定节点、粘贴节点、节点筛选）存成一个密码加密文件，只有 bash 能打开。备份里含订阅链接和密钥，文件和密码都要妥善保管，不要外传。密码一旦忘了，bash 就找不回来了。导入会把配置以新增方式加进来，不会删除已有配置；按应用的设置会合并，全局设置会被覆盖。</string>
     <string name="backup_export_password_title">设置备份密码</string>
     <string name="backup_import_password_title">输入备份密码</string>
     <string name="backup_password">密码</string>
     <string name="backup_password_confirm">确认密码</string>
-    <string name="backup_password_warning">备份用这个密码加密。密码一旦忘了，walash 在任何设备上都找不回来，备份就打不开了。</string>
+    <string name="backup_password_warning">备份用这个密码加密。密码一旦忘了，bash 在任何设备上都找不回来，备份就打不开了。</string>
     <string name="backup_password_mismatch">两次密码不一致</string>
     <string name="backup_wrong_password">密码不对，或者备份文件已损坏</string>
     <string name="backup_export">导出备份</string>
@@ -52,7 +52,7 @@
     <string name="backup_import_confirm">将以下配置以新增方式导入：%1$s。已有配置不会被删除，按应用的设置会合并，全局设置会被覆盖。确定导入吗？</string>
     <string name="backup_imported">备份已导入，共 %1$d 个配置</string>
     <string name="backup_import_partial">备份已导入 %1$d 个配置；失败：%2$s。失败的配置已留为待提交状态，联网后可在配置页提交完成。</string>
-    <string name="backup_invalid_file">不是有效的 walash 备份文件</string>
+    <string name="backup_invalid_file">不是有效的 bash 备份文件</string>
     <string name="format_minutes">%d 分钟</string>
     <string name="format_profile_activated">%s 已激活</string>
     <string name="format_traffic_forwarded">%s 已转发</string>
@@ -88,7 +88,7 @@
     <string name="settings">设置</string>
     <string name="show_traffic">显示流量</string>
     <string name="show_traffic_summary">在通知中自动刷新流量</string>
-    <string name="allow_clash_auto_restart">允许 walash 自动重启</string>
+    <string name="allow_clash_auto_restart">允许 bash 自动重启</string>
     <string name="auto_restart">自动重启</string>
     <string name="stopped">已停止</string>
     <string name="help">帮助</string>
@@ -96,7 +96,7 @@
     <string name="update">更新</string>
     <string name="url">URL</string>
     <string name="vpn_service_options">VpnService 选项</string>
-    <string name="options_unavailable">选项在 walash 运行时不可用</string>
+    <string name="options_unavailable">选项在 bash 运行时不可用</string>
     <string name="search">查找</string>
     <string name="age_secret_key">Age 私钥</string>
     <string name="age_secret_key_hint">AGE-SECRET-KEY-…（可选）</string>
@@ -289,17 +289,17 @@
     <string name="toast_profile_updated_complete">更新配置 %s 成功</string>
     <string name="toast_profile_updated_failed">更新配置 %1$s 失败：%2$s</string>
     <string name="external_control_activity">外部控制</string>
-    <string name="external_control_started">walash 服务已启动</string>
-    <string name="external_control_stopped">walash 服务已停止</string>
+    <string name="external_control_started">bash 服务已启动</string>
+    <string name="external_control_stopped">bash 服务已停止</string>
     <string name="import_from_qr_no_permission">相机权限受限，请前往设置开启。</string>
     <string name="import_from_qr_exception">发生系统未知异常，操作失败。</string>
 
-    <string name="shortcut_toggle_short">切换 walash</string>
-    <string name="shortcut_toggle_long">切换 walash 服务启停</string>
-    <string name="shortcut_start_short">启动 walash</string>
-    <string name="shortcut_start_long">启动 walash 服务</string>
-    <string name="shortcut_stop_short">停止 walash</string>
-    <string name="shortcut_stop_long">停止 walash 服务</string>
+    <string name="shortcut_toggle_short">切换 bash</string>
+    <string name="shortcut_toggle_long">切换 bash 服务启停</string>
+    <string name="shortcut_start_short">启动 bash</string>
+    <string name="shortcut_start_long">启动 bash 服务</string>
+    <string name="shortcut_stop_short">停止 bash</string>
+    <string name="shortcut_stop_long">停止 bash 服务</string>
     <!-- FEATURE-EXITIP / FEATURE-RUNCARD-V2：运行中卡片节点名后的机房/
          家庭词；IP 地址行在代码里拼成“IP 国家/城市”。 -->
     <string name="exit_ip_datacenter">机房</string>
