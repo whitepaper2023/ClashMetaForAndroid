@@ -105,7 +105,7 @@
     <string name="cancel">Отмена</string>
     <string name="reset">Сброс</string>
 
-    <string name="clash_logcat">walash Logcat</string>
+    <string name="clash_logcat">bash Logcat</string>
     <string name="history">История</string>
     <string name="logcat">Logcat</string>
 
@@ -119,7 +119,7 @@
     <string name="override">Переопределение</string>
 
     <string name="auto_restart">Автоматический перезапуск</string>
-    <string name="allow_clash_auto_restart">Разрешить walash автоматически перезапускаться</string>
+    <string name="allow_clash_auto_restart">Разрешить bash автоматически перезапускаться</string>
 
     <string name="route_system_traffic">Маршрутизировать системный трафик</string>
     <string name="routing_via_vpn_service">Автоматически маршрутизировать весь системный трафик через VPN</string>
@@ -139,7 +139,7 @@
     <string name="access_control_packages">Приложения с контролируемым доступом</string>
     <string name="access_control_packages_summary">Настройте доступ для приложения</string>
 
-    <string name="options_unavailable">Настройки недоступны, пока walash не будет остановлен</string>
+    <string name="options_unavailable">Настройки недоступны, пока bash не будет остановлен</string>
 
     <string name="general">Основные</string>
     <string name="dns">DNS</string>
@@ -323,8 +323,8 @@
     <string name="toast_profile_updated_complete">Update profile %s completed</string>
     <string name="toast_profile_updated_failed">Update profile %1$s failed: %2$s</string>
     <string name="external_control_activity">External Control</string>
-    <string name="external_control_started">walash service started</string>
-    <string name="external_control_stopped">walash service stopped</string>
+    <string name="external_control_started">bash service started</string>
+    <string name="external_control_stopped">bash service stopped</string>
     <string name="force_dns_mapping">Force DNS Mapping</string>
     <string name="parse_pure_ip">Parse Pure IP</string>
     <string name="override_destination">Override Destination</string>
