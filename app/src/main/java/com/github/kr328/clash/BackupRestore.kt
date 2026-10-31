@@ -38,7 +38,7 @@ import javax.crypto.spec.SecretKeySpec
 // message covers both).
 class WrongBackupPasswordException : Exception("Wrong backup password")
 
-private val BACKUP_MAGIC = "WALASHBK".toByteArray(Charsets.US_ASCII)
+private val BACKUP_MAGIC = "BASHBACK".toByteArray(Charsets.US_ASCII)
 private const val BACKUP_VERSION: Byte = 1
 private const val BACKUP_SALT_LEN = 16
 private const val BACKUP_NONCE_LEN = 12
@@ -65,25 +65,25 @@ private fun readExact(input: InputStream, size: Int): ByteArray {
     return buf
 }
 
-// FEATURE-BACKUP: export/import of walash data as a single ENCRYPTED
-// file. The file is NOT a zip: anyone opening it without walash (or
+// FEATURE-BACKUP: export/import of bash data as a single ENCRYPTED
+// file. The file is NOT a zip: anyone opening it without bash (or
 // without the password) sees only ciphertext, never a config, a
 // subscription URL, or a key.
 //
 // File format (all multi-byte fields are raw bytes, no text header):
-//   "WALASHBK" (8 bytes magic) | version (1 byte, currently 1)
+//   "BASHBACK" (8 bytes magic) | version (1 byte, currently 1)
 //   | salt (16 bytes) | GCM nonce (12 bytes)
 //   | AES-256-GCM ciphertext of the zip described below.
 // The key is PBKDF2WithHmacSHA256(password, salt, 100_000 rounds,
 // 256 bits). No key is stored in the file and no key is stored in the
-// app: only walash knows this format, and only the password that was
+// app: only bash knows this format, and only the password that was
 // set at export time can decrypt it. Consequence, stated in the UI:
-// a forgotten password cannot be recovered by walash either, on any
+// a forgotten password cannot be recovered by bash either, on any
 // device, so the backup becomes unusable.
 //
 // The encrypted zip contains:
 //   manifest.json — format/version, one entry per saved profile
-//     (name, type, source, interval, ageSecretKey), and the walash
+//     (name, type, source, interval, ageSecretKey), and the bash
 //     settings (blocked apps, per-app nodes, proxy filters, pasted
 //     nodes, profile order, and the global service settings).
 //   profiles/<oldUuid>/... — the profile's files from importedDir
@@ -93,8 +93,8 @@ private fun readExact(input: InputStream, size: Int): ByteArray {
 // (created but never committed) is not saved yet, so it is skipped.
 //
 // Import never deletes existing data: profiles are always created as
-// NEW profiles (fresh UUIDs, walash rules remapped old -> new), the
-// walash sets are merged with the existing ones, and only the single-
+// NEW profiles (fresh UUIDs, bash rules remapped old -> new), the
+// bash sets are merged with the existing ones, and only the single-
 // value global settings are overwritten. The active profile is never
 // switched by an import. A profile whose commit fails (e.g. a Url
 // profile with no network at import time) is left as a pending profile
@@ -187,7 +187,7 @@ private fun BackupManifest.toJson(): JSONObject {
     settingsJson.put("dynamicNotification", settings.dynamicNotification)
 
     val root = JSONObject()
-    root.put("format", "walash-backup")
+    root.put("format", "bash-backup")
     root.put("version", 1)
     root.put("exportedAt", exportedAt)
     root.put("profiles", profilesJson)
@@ -196,8 +196,8 @@ private fun BackupManifest.toJson(): JSONObject {
 }
 
 private fun parseBackupManifest(json: JSONObject): BackupManifest {
-    if (json.optString("format") != "walash-backup" || json.optInt("version") != 1)
-        throw IllegalArgumentException("Not a walash backup file")
+    if (json.optString("format") != "bash-backup" || json.optInt("version") != 1)
+        throw IllegalArgumentException("Not a bash backup file")
     val profilesJson = json.optJSONArray("profiles") ?: JSONArray()
     val profiles = ArrayList<BackupProfile>()
     for (i in 0 until profilesJson.length()) {
@@ -348,7 +348,7 @@ suspend fun parseBackupPreview(context: Context, uri: Uri, password: String): Ba
                 input.use { raw ->
                     val magic = readExact(raw, BACKUP_MAGIC.size)
                     if (!magic.contentEquals(BACKUP_MAGIC))
-                        throw IllegalArgumentException("Not a walash backup file")
+                        throw IllegalArgumentException("Not a bash backup file")
                     val version = readExact(raw, 1)[0]
                     if (version != BACKUP_VERSION)
                         throw IllegalArgumentException("Unsupported backup version")
@@ -397,7 +397,7 @@ suspend fun parseBackupPreview(context: Context, uri: Uri, password: String): Ba
             }
             val manifestFile = File(dir, "manifest.json")
             if (!manifestFile.exists())
-                throw IllegalArgumentException("Not a walash backup file")
+                throw IllegalArgumentException("Not a bash backup file")
             val manifest = parseBackupManifest(
                 JSONObject(manifestFile.readText(Charsets.UTF_8))
             )
@@ -412,7 +412,7 @@ suspend fun parseBackupPreview(context: Context, uri: Uri, password: String): Ba
 
 // Import: creates every backup profile as a NEW profile (never
 // overwriting an existing one), copies its saved files into the new
-// pending dir, patches and commits it, then merges the walash settings
+// pending dir, patches and commits it, then merges the bash settings
 // (rules remapped oldUuid -> newUuid) and overwrites the single-value
 // global settings. Existing profiles are never deleted and the active
 // profile is never switched. Returns per-profile success/failure names.
