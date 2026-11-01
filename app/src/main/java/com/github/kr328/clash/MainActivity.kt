@@ -115,6 +115,20 @@ class MainActivity : BaseActivity<MainDesign>() {
     }
 
     private suspend fun MainDesign.fetch() {
+        // FEATURE-CURNODE-CACHE BEGIN: the running-card node cache must
+        // not survive a profile switch. fetch() runs on ActivityStart,
+        // ServiceRecreated, ClashStart/Stop, ProfileLoaded and
+        // ProfileChanged, so clearing here re-scans the first Selector
+        // group on the next traffic tick. Without this, switching from
+        // a config whose first Selector is openworld to one whose first
+        // Selector is instabox left currentNodeGroup = "openworld" (still
+        // a Selector, so the old rescan condition never fired), and the
+        // home card kept showing openworld's node even after the user
+        // selected instabox-4 in the instabox group, until the app or
+        // VPN was restarted. Node selection itself (patchSelector) was
+        // not the failing part; the card was querying the wrong group.
+        currentNodeGroup = null
+        // FEATURE-CURNODE-CACHE END
         setClashRunning(clashRunning)
 
         val state = withClash {
