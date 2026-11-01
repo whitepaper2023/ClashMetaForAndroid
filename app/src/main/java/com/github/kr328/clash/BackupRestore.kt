@@ -197,7 +197,7 @@ private fun BackupManifest.toJson(): JSONObject {
 
 private fun parseBackupManifest(json: JSONObject): BackupManifest {
     if (json.optString("format") != "bash-backup" || json.optInt("version") != 1)
-        throw IllegalArgumentException("Not a bash backup file")
+        throw IllegalArgumentException("Not a Bash backup file")
     val profilesJson = json.optJSONArray("profiles") ?: JSONArray()
     val profiles = ArrayList<BackupProfile>()
     for (i in 0 until profilesJson.length()) {
@@ -348,7 +348,7 @@ suspend fun parseBackupPreview(context: Context, uri: Uri, password: String): Ba
                 input.use { raw ->
                     val magic = readExact(raw, BACKUP_MAGIC.size)
                     if (!magic.contentEquals(BACKUP_MAGIC))
-                        throw IllegalArgumentException("Not a bash backup file")
+                        throw IllegalArgumentException("Not a Bash backup file")
                     val version = readExact(raw, 1)[0]
                     if (version != BACKUP_VERSION)
                         throw IllegalArgumentException("Unsupported backup version")
@@ -397,7 +397,7 @@ suspend fun parseBackupPreview(context: Context, uri: Uri, password: String): Ba
             }
             val manifestFile = File(dir, "manifest.json")
             if (!manifestFile.exists())
-                throw IllegalArgumentException("Not a bash backup file")
+                throw IllegalArgumentException("Not a Bash backup file")
             val manifest = parseBackupManifest(
                 JSONObject(manifestFile.readText(Charsets.UTF_8))
             )

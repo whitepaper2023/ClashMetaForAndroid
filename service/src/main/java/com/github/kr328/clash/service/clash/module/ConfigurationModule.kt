@@ -81,8 +81,11 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
     }
 
     // FEATURE-1 BEGIN: app blocklist via staging dir.
-    // (FEATURE-2 extends this same staging path: per-app node rules are
-    // appended after the FEATURE-1 REJECT lines, never before them.)
+    // (FEATURE-2 extends this same staging path. Since
+    // FEATURE-APPNODE-FALLBACK, per-app node rules are NOT appended
+    // after the FEATURE-1 REJECT lines any more: REJECT stays at the
+    // very top, node rules go just before MATCH/FINAL, so subscription
+    // rules win and a designated node is only the fallback.)
     // Self-check note: BlockedAppsActivity calls sendOverrideChanged() on
     // leaving the page; this module listens for ACTION_OVERRIDE_CHANGED and
     // its select branch returns null for it, so `changed` is null and the
@@ -133,12 +136,24 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             stagingTmp.resolve("config.yaml"), appNodeRules
         )
 
+        // FEATURE-APPNODE-FALLBACK BEGIN: blocked REJECT lines stay at
+        // the very top (they must win over everything), but per-app node
+        // rules are no longer prepended with them. They are inserted
+        // just before MATCH/FINAL (or at the end of the rules section
+        // when there is no terminal rule), so every subscription rule
+        // (DOMAIN/GEOIP DIRECT, specific proxy rules, ...) matches
+        // first and the designated node only catches what nothing else
+        // matched. Without this, a designated node swallowed domestic
+        // DIRECT rules too, because PROCESS-NAME was first.
         injectFeatureRules(
             stagingTmp.resolve("config.yaml"),
-            // FEATURE-1 lines first, FEATURE-2 lines after: REJECT always
-            // wins over a node rule for the same app (first match wins).
-            buildBlockRuleLines(blocked) + buildAppNodeRuleLines(safeAppNodeRules)
+            buildBlockRuleLines(blocked)
         )
+        injectAppNodeRulesBeforeMatch(
+            stagingTmp.resolve("config.yaml"),
+            buildAppNodeRuleLines(safeAppNodeRules)
+        )
+        // FEATURE-APPNODE-FALLBACK END
 
         // FEATURE-PASTE: pasted nodes are injected after the rules (the
         // sections are independent, so order between the two does not
@@ -153,7 +168,8 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
     }
 
     // FEATURE-1: REJECT rule lines for blocked apps. Order matters:
-    // these lines are always placed BEFORE any FEATURE-2 per-app node rule,
+    // these lines are always placed BEFORE any FEATURE-2 per-app node rule
+    // (at the very top, while node rules now sit just before MATCH),
     // so a blocked app is REJECTed even if it also has a node rule (mihomo
     // matches rules in order, first match wins).
     private fun buildBlockRuleLines(blocked: Set<String>): List<String> {
@@ -220,8 +236,9 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
     }
     // FEATURE-2 END
 
-    // Shared staging-rule inserter (FEATURE-1; FEATURE-2 reuses it with its
-    // own rule lines appended after the FEATURE-1 lines). It only ever
+    // Shared staging-rule inserter (FEATURE-1 only since
+    // FEATURE-APPNODE-FALLBACK; FEATURE-2 now uses
+    // injectAppNodeRulesBeforeMatch). It only ever
     // inserts one block, so a duplicate `rules:` key can never be created.
     private fun injectFeatureRules(configFile: File, ruleLines: List<String>) {
         if (ruleLines.isEmpty())
@@ -308,6 +325,113 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             Log.w("Unsupported rules format, feature rules not applied")
         }
     }
+
+    // FEATURE-APPNODE-FALLBACK BEGIN: per-app node rules as the
+    // fallback, after every subscription rule but before the terminal
+    // MATCH/FINAL rule. Putting them literally after MATCH would make
+    // them dead code (MATCH matches everything), so "after the rules"
+    // means after all specific rules, with MATCH still last as the
+    // group's own fallback. Blocked REJECT lines are injected
+    // separately by injectFeatureRules and stay at the very top, so
+    // they still win over both subscription rules and node rules.
+    // Indent matching follows the same rule as injectFeatureRules
+    // (FEATURE-2B): use the section's existing item indent, so
+    // mixed-indent YAML errors cannot occur.
+    private fun injectAppNodeRulesBeforeMatch(configFile: File, ruleLines: List<String>) {
+        if (ruleLines.isEmpty())
+            return
+        if (!configFile.exists()) {
+            Log.w("config.yaml missing, app node rules not applied")
+            return
+        }
+
+        val lines = configFile.readLines().toMutableList()
+
+        // Case 1: block-style `rules:` list at column 0.
+        val blockStyle = lines.indexOfFirst {
+            it.startsWith("rules:") && it.removePrefix("rules:").trim().let { rest ->
+                rest.isEmpty() || rest.startsWith("#")
+            }
+        }
+        if (blockStyle >= 0) {
+            val itemIndent = detectSectionItemIndent(lines, blockStyle)
+            val end = sectionEnd(lines, blockStyle)
+            var insertAt = end
+            for (i in blockStyle + 1 until end) {
+                val line = lines[i]
+                if (line.isBlank() || line.trimStart().startsWith("#"))
+                    continue
+                val trimmed = line.trimStart()
+                if (!trimmed.startsWith("- "))
+                    continue
+                val ruleText = trimmed.removePrefix("- ").trim()
+                    .trim('"', '\'').trim()
+                val head = ruleText.substringBefore(",").trim()
+                if (head.equals("MATCH", ignoreCase = true) ||
+                    head.equals("FINAL", ignoreCase = true)) {
+                    insertAt = i
+                    break
+                }
+            }
+            lines.addAll(insertAt, ruleLines.map { itemIndent + it })
+            configFile.writeText(lines.joinToString("\n") + "\n")
+            return
+        }
+
+        // Case 2: single-line flow-style `rules: [...]` -> insert
+        // before the MATCH/FINAL item, or before `]` when there is none.
+        // Items themselves contain commas (e.g. DOMAIN-SUFFIX,a,DIRECT),
+        // so the terminal item is found by scanning for an item start
+        // (after `[` or `,`, optional spaces/quotes) followed by
+        // MATCH, or FINAL, and a comma, not by splitting on commas.
+        val flowStyle = lines.indexOfFirst {
+            it.startsWith("rules:") && it.contains("[") && it.contains("]")
+        }
+        if (flowStyle >= 0) {
+            val line = lines[flowStyle]
+            val open = line.indexOf('[')
+            val close = line.indexOf(']', open)
+            if (open < 0 || close < 0) {
+                Log.w("Unsupported rules format, app node rules not applied")
+                return
+            }
+            val items = ruleLines.joinToString(", ") { "\"${it.removePrefix("- ")}\"" }
+            val terminal = Regex("""(?:\[|,\s*"?)(MATCH|FINAL),""")
+                .find(line, open)
+            lines[flowStyle] = if (terminal != null) {
+                // Item start = just after the `[` or `,` separator,
+                // skipping spaces, landing on the item's opening quote
+                // (if quoted) or on MATCH/FINAL itself. Inserting there
+                // keeps the separator and the quote with the terminal
+                // item, so no quoted string is split in two.
+                var itemStart = terminal.range.first + 1
+                while (itemStart < line.length && line[itemStart] == ' ')
+                    itemStart++
+                line.substring(0, itemStart) + items + ", " + line.substring(itemStart)
+            } else {
+                val inner = line.substring(open + 1, close).trim()
+                if (inner.isEmpty()) {
+                    line.substring(0, open + 1) + items + line.substring(close)
+                } else {
+                    line.substring(0, close) + ", " + items + line.substring(close)
+                }
+            }
+            configFile.writeText(lines.joinToString("\n") + "\n")
+            return
+        }
+
+        // Case 3: no top-level `rules:` key at all -> append a block.
+        if (lines.none { it.startsWith("rules:") }) {
+            lines.add("")
+            lines.add("rules:")
+            lines.addAll(ruleLines)
+            configFile.writeText(lines.joinToString("\n") + "\n")
+        } else {
+            Log.w("Unsupported rules format, app node rules not applied")
+        }
+    }
+    // FEATURE-APPNODE-FALLBACK END
+
     // FEATURE-PASTE BEGIN: pasted nodes ride the same staging copy as the
     // feature rules, so they survive subscription updates (staging is
     // rebuilt from the imported originals on every load). Two edits:
