@@ -70,7 +70,7 @@ jobs:
       # release builds without uninstalling.
       - name: Build
         if: success()
-        run: ./gradlew --no-daemon app:assembleAlphaRelease
+        run: ./gradlew --no-daemon --stacktrace app:assembleAlphaRelease
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v7
