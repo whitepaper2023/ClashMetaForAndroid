@@ -26,6 +26,11 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         // opens while stopped too (picks are stored and applied at the
         // next load); while running they apply on leaving the page.
         OpenBlockedApps,
+        // FEATURE-DOMAINNODE: homepage entry for domain/keyword nodes.
+        // The page opens while stopped too (rules are stored and applied
+        // at the next load); picking a node needs a running Clash, as
+        // with per-app nodes.
+        OpenDomainNodes,
         // FEATURE-2B END
         OpenProfiles,
         OpenProviders,
