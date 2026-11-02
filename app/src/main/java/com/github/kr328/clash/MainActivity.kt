@@ -96,6 +96,10 @@ class MainActivity : BaseActivity<MainDesign>() {
                         // FEATURE-1C BEGIN: homepage entry for app blocklist.
                         MainDesign.Request.OpenBlockedApps ->
                             startActivity(BlockedAppsActivity::class.intent)
+                        // FEATURE-DOMAINNODE BEGIN: homepage entry.
+                        MainDesign.Request.OpenDomainNodes ->
+                            startActivity(DomainNodeActivity::class.intent)
+                        // FEATURE-DOMAINNODE END
                         // FEATURE-1C END
                         MainDesign.Request.OpenProfiles ->
                             startActivity(ProfilesActivity::class.intent)
