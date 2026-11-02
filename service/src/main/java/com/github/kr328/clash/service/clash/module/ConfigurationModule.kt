@@ -9,7 +9,9 @@ import com.github.kr328.clash.service.data.ImportedDao
 import com.github.kr328.clash.service.data.SelectionDao
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.store.PastedProxyEntry
+import com.github.kr328.clash.service.store.DomainRule
 import com.github.kr328.clash.service.store.parseAppNodeRulesForProfile
+import com.github.kr328.clash.service.store.parseDomainNodeRulesForProfile
 import com.github.kr328.clash.service.store.parsePastedProxies
 import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.sendProfileLoaded
@@ -99,12 +101,14 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
         // FEATURE-2D: per-app node rules ride the same staging copy,
         // but only this profile's own rules -- never another profile's.
         val appNodeRules = parseAppNodeRulesForProfile(store.appNodeRules, uuid)
+        // FEATURE-DOMAINNODE: this profile's domain rules only.
+        val domainNodeRules = parseDomainNodeRulesForProfile(store.domainNodeRules, uuid)
         // FEATURE-PASTE: pasted nodes ride the same staging copy, so
         // they survive subscription updates (see injectPastedProxies).
         val pasted = parsePastedProxies(store.pastedProxies, uuid)
         val imported = service.importedDir.resolve(uuid.toString())
         // Everything off -> original dir untouched (baseline unchanged).
-        if (blocked.isEmpty() && appNodeRules.isEmpty() && pasted.isEmpty())
+        if (blocked.isEmpty() && appNodeRules.isEmpty() && pasted.isEmpty() && domainNodeRules.isEmpty())
             return imported
 
         val stagingRoot = service.filesDir.resolve("staging")
@@ -149,6 +153,30 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             stagingTmp.resolve("config.yaml"),
             buildBlockRuleLines(blocked)
         )
+        // FEATURE-DOMAINNODE BEGIN: domain rules go AFTER the last
+        // REJECT rule in the rules section (app block REJECT lines just
+        // injected count too, but subscription ad REJECT rules sit
+        // later, so they are the ones that set the position). Final
+        // order: block REJECT > subscription REJECT (ads) > domain
+        // rules > remaining subscription rules (including the .cn and
+        // GEOIP,CN DIRECT rules near MATCH, which domain rules beat)
+        // > per-app node rules > MATCH. Stale targets are filtered
+        // the same way as appNodeRules (see FEATURE-2D).
+        val domainMap = LinkedHashMap<String, String>()
+        for (rule in domainNodeRules)
+            domainMap["${rule.type}|${rule.pattern}"] = rule.target
+        val safeDomainMap = filterAppNodeRulesToKnownTargets(
+            stagingTmp.resolve("config.yaml"), domainMap
+        )
+        val safeDomainRules = safeDomainMap.entries.map { (key, target) ->
+            val sep = key.indexOf('|')
+            DomainRule(key.substring(0, sep), key.substring(sep + 1), target)
+        }
+        injectDomainNodeRulesAfterReject(
+            stagingTmp.resolve("config.yaml"),
+            buildDomainNodeRuleLines(safeDomainRules)
+        )
+        // FEATURE-DOMAINNODE END
         injectAppNodeRulesBeforeMatch(
             stagingTmp.resolve("config.yaml"),
             buildAppNodeRuleLines(safeAppNodeRules)
@@ -189,6 +217,132 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
             .sortedBy { it.key }
             .map { "- PROCESS-NAME,${it.key},${it.value}" }
     }
+
+    // FEATURE-DOMAINNODE BEGIN: rule lines for domain rules, sorted
+    // by type rank (DOMAIN, then DOMAIN-SUFFIX, then DOMAIN-KEYWORD)
+    // with insertion order preserved within one type (Kotlin's
+    // sortedBy is stable, and the input list is insertion-ordered, so
+    // first-added wins within a type). A target containing ',' is
+    // skipped, as with appNodeRules: it cannot be expressed in a
+    // comma-separated rule line.
+    private fun buildDomainNodeRuleLines(domainRules: List<DomainRule>): List<String> {
+        val rank = mapOf("DOMAIN" to 0, "DOMAIN-SUFFIX" to 1, "DOMAIN-KEYWORD" to 2)
+        return domainRules
+            .filter { rule ->
+                // Second layer of defence (parse already drops these):
+                // a comma/tab/newline in either field must never reach
+                // a generated rule line.
+                val bad = listOf(',', '\t', '\n', '\r', '|')
+                bad.none { rule.pattern.contains(it) || rule.target.contains(it) }
+            }
+            .sortedBy { rank[it.type] ?: 99 }
+            .map { "- ${it.type},${it.pattern},${it.target}" }
+    }
+
+    // FEATURE-DOMAINNODE: insert domain rule lines immediately after
+    // the LAST REJECT rule in the rules section. That position is what
+    // makes both Lu decisions hold at once: every subscription REJECT
+    // rule (ads, trackers) stays above domain rules, while domain rules
+    // stay above the .cn/GEOIP,CN DIRECT rules that sit near MATCH.
+    // Rules before the ad REJECT block (specific subscription rules)
+    // still win over domain rules -- that is the documented, accepted
+    // consequence of "ads REJECT above domain", not a bug: only the
+    // general DIRECT rules near the end are beaten by domain rules.
+    // Indent matching follows injectFeatureRules (FEATURE-2B).
+    private fun injectDomainNodeRulesAfterReject(configFile: File, ruleLines: List<String>) {
+        if (ruleLines.isEmpty())
+            return
+        if (!configFile.exists()) {
+            Log.w("config.yaml missing, domain node rules not applied")
+            return
+        }
+
+        val lines = configFile.readLines().toMutableList()
+
+        // Case 1: block-style `rules:` list at column 0.
+        val blockStyle = lines.indexOfFirst {
+            it.startsWith("rules:") && it.removePrefix("rules:").trim().let { rest ->
+                rest.isEmpty() || rest.startsWith("#")
+            }
+        }
+        if (blockStyle >= 0) {
+            val itemIndent = detectSectionItemIndent(lines, blockStyle)
+            val end = sectionEnd(lines, blockStyle)
+            // Last item whose final comma field is REJECT. Block
+            // REJECT lines (PROCESS-NAME,...,REJECT) count, so with no
+            // subscription REJECT rules the domain lines land right
+            // after the block lines, still above every subscription
+            // rule; with subscription REJECT rules they land after the
+            // last of those instead.
+            var insertAt = blockStyle + 1
+            for (i in blockStyle + 1 until end) {
+                val line = lines[i]
+                if (line.isBlank() || line.trimStart().startsWith("#"))
+                    continue
+                val trimmed = line.trimStart()
+                if (!trimmed.startsWith("- "))
+                    continue
+                val ruleText = trimmed.removePrefix("- ").trim().trim('"', '\'').trim()
+                // Any comma field being REJECT counts (a REJECT rule
+                // could in principle carry a trailing parameter, and
+                // then the last field would not be REJECT itself).
+                val isReject = ruleText.split(",").any {
+                    it.trim().equals("REJECT", ignoreCase = true)
+                }
+                if (isReject)
+                    insertAt = i + 1
+            }
+            lines.addAll(insertAt, ruleLines.map { itemIndent + it })
+            configFile.writeText(lines.joinToString("\n") + "\n")
+            return
+        }
+
+        // Case 2: single-line flow-style `rules: [...]` -> insert
+        // after the last REJECT item, or prepend when there is none.
+        // Items contain commas, so REJECT items are found by regex on
+        // item boundaries (after `[` or `,`, optional spaces/quotes),
+        // never by splitting the whole line on commas.
+        val flowStyle = lines.indexOfFirst {
+            it.startsWith("rules:") && it.contains("[") && it.contains("]")
+        }
+        if (flowStyle >= 0) {
+            val line = lines[flowStyle]
+            val open = line.indexOf('[')
+            val close = line.indexOf(']', open)
+            if (open < 0 || close < 0) {
+                Log.w("Unsupported rules format, domain node rules not applied")
+                return
+            }
+            val items = ruleLines.joinToString(", ") { "\"${it.removePrefix("- ")}\"" }
+            val reject = Regex("""(?:\[|,\s*"?)[^",\]]*,[^",\]]*,REJECT"?""")
+                .findAll(line.substring(open, close))
+                .lastOrNull()
+            lines[flowStyle] = if (reject != null) {
+                val at = open + reject.range.last + 1
+                line.substring(0, at) + ", " + items + line.substring(at)
+            } else {
+                val inner = line.substring(open + 1, close).trim()
+                if (inner.isEmpty()) {
+                    line.substring(0, open + 1) + items + line.substring(close)
+                } else {
+                    line.substring(0, open + 1) + items + ", " + line.substring(open + 1)
+                }
+            }
+            configFile.writeText(lines.joinToString("\n") + "\n")
+            return
+        }
+
+        // Case 3: no top-level `rules:` key at all -> append a block.
+        if (lines.none { it.startsWith("rules:") }) {
+            lines.add("")
+            lines.add("rules:")
+            lines.addAll(ruleLines)
+            configFile.writeText(lines.joinToString("\n") + "\n")
+        } else {
+            Log.w("Unsupported rules format, domain node rules not applied")
+        }
+    }
+    // FEATURE-DOMAINNODE END
 
     // FEATURE-2D: known proxy/group names from a config file, used only
     // to drop rules pointing at targets this config does not have.
