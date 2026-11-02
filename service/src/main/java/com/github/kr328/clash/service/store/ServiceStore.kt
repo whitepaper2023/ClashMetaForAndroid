@@ -54,6 +54,29 @@ class ServiceStore(context: Context) {
     )
     // FEATURE-2 END
 
+    // FEATURE-DOMAINNODE BEGIN: per-profile domain/keyword designated
+    // node. Stored as raw strings "<uuid>=<seq>|<TYPE>|<pattern>|<target>"
+    // (TYPE is DOMAIN, DOMAIN-SUFFIX or DOMAIN-KEYWORD). The explicit
+    // <seq> is REQUIRED: the store is a StringSet (HashSet), so
+    // persistence loses insertion order, and "first-added wins within
+    // a type" would otherwise degrade to hash order after a reload.
+    // '|' separates the fields because a target may contain '='; a
+    // target containing ',' is skipped at load time, as with
+    // appNodeRules, because it cannot be expressed in a rule line.
+    // Priority (decided by Lu 2026-11-02): app block REJECT first,
+    // subscription REJECT rules (ads) second, domain rules third
+    // (inserted after the LAST subscription REJECT rule, so they still
+    // beat the .cn/GEOIP,CN DIRECT rules that sit near MATCH),
+    // remaining subscription rules fourth, per-app node rules as the
+    // fallback before MATCH, MATCH last. Within domain rules:
+    // DOMAIN beats DOMAIN-SUFFIX beats DOMAIN-KEYWORD, and within one
+    // type insertion order wins (first added wins).
+    var domainNodeRules by store.stringSet(
+        key = "domain_node_rules",
+        defaultValue = emptySet()
+    )
+    // FEATURE-DOMAINNODE END
+
     // FEATURE-3 BEGIN: fault auto-restart marker. Set true on every    // explicit start; cleared only on a manual stop. The service is
     // START_STICKY while shouldRun is true (system kill -> recreated) and
     // START_NOT_STICKY otherwise (manual stop -> never comes back).
@@ -185,6 +208,102 @@ fun encodeAppNodeRulesForProfile(
         .map { "$prefix${it.key}=${it.value}" }).toSet()
 }
 // FEATURE-2D END
+
+// FEATURE-DOMAINNODE BEGIN: domain-node rules are stored PER PROFILE,
+// mirroring appNodeRules. Format: "<profileUuid>=<seq>|<TYPE>|<pattern>|<target>"
+// (split on the FIRST '=', then limit 4 on '|', so a target
+// containing '=' survives; '|' and newlines are rejected by the UI
+// validator and dropped here as defence in depth, because they would
+// break the field split / the staging YAML). Malformed entries, blank
+// patterns, blank targets and unknown types are dropped on read;
+// entries of other profiles are preserved verbatim by the encoder.
+// Order is the explicit <seq> (insertion order): the loader sorts by
+// type rank but keeps seq order within one type, so first-added wins
+// there even after the StringSet round-trip.
+data class DomainRule(
+    val type: String,
+    val pattern: String,
+    val target: String,
+    val seq: Int = 0,
+)
+
+val DOMAIN_NODE_TYPES = listOf("DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD")
+
+fun parseDomainNodeRulesForProfile(raw: Set<String>, uuid: java.util.UUID): List<DomainRule> {
+    val prefix = uuid.toString() + "="
+    val byKey = LinkedHashMap<String, DomainRule>()
+    for (entry in raw) {
+        if (!entry.startsWith(prefix))
+            continue
+        val rest = entry.substring(prefix.length)
+        val parts = rest.split("|", limit = 4)
+        if (parts.size != 4)
+            continue
+        val seq = parts[0].toIntOrNull() ?: continue
+        val (type, pattern, target) = parts.subList(1, 4)
+        if (type !in DOMAIN_NODE_TYPES || pattern.isBlank() || target.isBlank())
+            continue
+        // Defence in depth (the UI validator is not the last line:
+        // a hand-edited backup import can smuggle entries past it).
+        // A comma in the pattern would make a 4-field rule line that
+        // fails the whole mihomo load; '|' breaks the field split;
+        // newlines/tabs would break the staging YAML or silently
+        // mismatch the target name.
+        val badChars = listOf('|', ',', '\n', '\r', '\t')
+        if (badChars.any { pattern.contains(it) || target.contains(it) })
+            continue
+        if (pattern != pattern.trim() || target != target.trim())
+            continue
+        // One rule per (type, pattern): the smallest seq wins, so a
+        // duplicate add can never create two conflicting rules for the
+        // same pattern.
+        val key = "$type|$pattern"
+        val existing = byKey[key]
+        if (existing == null || seq < existing.seq)
+            byKey[key] = DomainRule(type, pattern, target, seq)
+    }
+    return byKey.values.sortedBy { it.seq }
+}
+
+fun encodeDomainNodeRulesForProfile(
+    raw: Set<String>,
+    uuid: java.util.UUID,
+    rules: List<DomainRule>,
+): Set<String> {
+    val prefix = uuid.toString() + "="
+    // Keep only well-formed entries of OTHER profiles; malformed
+    // entries (wrong part count, unknown type, blank fields) are
+    // dropped here, as are this profile's old entries (replaced below).
+    val kept = raw.filter { entry ->
+        if (entry.startsWith(prefix))
+            return@filter false
+        val sep = entry.indexOf('=')
+        if (sep <= 0)
+            return@filter false
+        if (runCatching { java.util.UUID.fromString(entry.substring(0, sep)) }.isFailure)
+            return@filter false
+        val parts = entry.substring(sep + 1).split("|", limit = 4)
+        parts.size == 4 && parts[0].toIntOrNull() != null &&
+            parts[1] in DOMAIN_NODE_TYPES &&
+            parts[2].isNotBlank() && parts[3].isNotBlank()
+    }
+    // Preserve seq for rules that already existed (matched by
+    // type+pattern, so editing only the target keeps its place);
+    // a new or re-patterned rule takes the next seq, i.e. it goes
+    // last within its type. Editing the pattern is therefore
+    // delete+add, which is the honest semantics for an ordered rule.
+    val oldSeqs = parseDomainNodeRulesForProfile(raw, uuid)
+        .associate { "${it.type}|${it.pattern}" to it.seq }
+    var nextSeq = (oldSeqs.values.maxOrNull() ?: -1) + 1
+    val encoded = rules
+        .filter { it.type in DOMAIN_NODE_TYPES && it.pattern.isNotBlank() && it.target.isNotBlank() }
+        .map { rule ->
+            val seq = oldSeqs["${rule.type}|${rule.pattern}"] ?: nextSeq++
+            "$prefix$seq|${rule.type}|${rule.pattern}|${rule.target}"
+        }
+    return (kept + encoded).toSet()
+}
+// FEATURE-DOMAINNODE END
 
 // FEATURE-5 BEGIN: encode/decode for proxyFilterRules. Format mirrors
 // appNodeRules ("<uuid>=<nodeName>"), split on the FIRST '=' only: a UUID
