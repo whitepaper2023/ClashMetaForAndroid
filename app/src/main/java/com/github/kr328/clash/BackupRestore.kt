@@ -113,6 +113,9 @@ data class BackupProfile(
 data class BackupSettings(
     val blockedPackages: Set<String>,
     val appNodeRules: Set<String>,
+    // FEATURE-DOMAINNODE: domain rules ride the backup like appNodeRules
+    // (per-profile, uuid-remapped on import by the shared remap()).
+    val domainNodeRules: Set<String>,
     val proxyFilterRules: Set<String>,
     val pastedProxies: Set<String>,
     val profileOrder: String,
@@ -173,6 +176,7 @@ private fun BackupManifest.toJson(): JSONObject {
     val settingsJson = JSONObject()
     settingsJson.put("blockedPackages", settings.blockedPackages.toJsonArray())
     settingsJson.put("appNodeRules", settings.appNodeRules.toJsonArray())
+    settingsJson.put("domainNodeRules", settings.domainNodeRules.toJsonArray())
     settingsJson.put("proxyFilterRules", settings.proxyFilterRules.toJsonArray())
     settingsJson.put("pastedProxies", settings.pastedProxies.toJsonArray())
     settingsJson.put("profileOrder", settings.profileOrder)
@@ -220,6 +224,7 @@ private fun parseBackupManifest(json: JSONObject): BackupManifest {
     val settings = BackupSettings(
         blockedPackages = s.optJSONArray("blockedPackages")?.toStringSet() ?: emptySet(),
         appNodeRules = s.optJSONArray("appNodeRules")?.toStringSet() ?: emptySet(),
+        domainNodeRules = s.optJSONArray("domainNodeRules")?.toStringSet() ?: emptySet(),
         proxyFilterRules = s.optJSONArray("proxyFilterRules")?.toStringSet() ?: emptySet(),
         pastedProxies = s.optJSONArray("pastedProxies")?.toStringSet() ?: emptySet(),
         profileOrder = s.optString("profileOrder", ""),
@@ -270,6 +275,7 @@ suspend fun exportBackup(context: Context, out: OutputStream, password: String):
             settings = BackupSettings(
                 blockedPackages = service.blockedPackages,
                 appNodeRules = service.appNodeRules,
+                domainNodeRules = service.domainNodeRules,
                 proxyFilterRules = service.proxyFilterRules,
                 pastedProxies = service.pastedProxies,
                 profileOrder = ui.profileOrder,
@@ -469,6 +475,7 @@ suspend fun importBackup(context: Context, preview: BackupPreview): ImportResult
     val s = manifest.settings
     service.blockedPackages = service.blockedPackages + s.blockedPackages
     service.appNodeRules = service.appNodeRules + remap(s.appNodeRules)
+    service.domainNodeRules = service.domainNodeRules + remap(s.domainNodeRules)
     service.proxyFilterRules = service.proxyFilterRules + remap(s.proxyFilterRules)
     service.pastedProxies = service.pastedProxies + remap(s.pastedProxies)
     try {
