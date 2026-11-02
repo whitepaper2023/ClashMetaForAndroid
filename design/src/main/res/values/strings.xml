@@ -177,6 +177,25 @@
     <string name="app_node_search_hint">搜索应用名或包名</string>
     <string name="app_node_blocked_first">已拉黑，拉黑优先</string>
     <!-- FEATURE-2 END -->
+    <!-- FEATURE-DOMAINNODE BEGIN: domain/keyword designated node page.
+         Only the default locale carries these strings; other locales
+         fall back to them. -->
+    <string name="domain_node_title">域名指定</string>
+    <string name="domain_node_search_hint">搜索域名或关键字</string>
+    <string name="domain_node_add">添加域名指定</string>
+    <string name="domain_node_pattern_hint">域名或关键字，如 example.com</string>
+    <string name="domain_node_target_hint">节点名（运行时可点选择）</string>
+    <string name="domain_node_pick_target">选择节点</string>
+    <string name="domain_node_type_exact">精确域名</string>
+    <string name="domain_node_type_suffix">后缀域名</string>
+    <string name="domain_node_type_keyword">关键字</string>
+    <string name="domain_node_stale">目标节点已不存在</string>
+    <string name="domain_node_saved">退出本页生效</string>
+    <string name="domain_node_invalid">域名或关键字不能为空，也不能含空格、逗号、|、换行和制表符</string>
+    <string name="domain_node_exists">这个域名或关键字已经指定过了</string>
+    <string name="domain_node_delete">删除这条域名指定？</string>
+    <string name="domain_node_pruned">已清理失效域名指定：%1$s</string>
+    <!-- FEATURE-DOMAINNODE END -->
 
     <!-- FEATURE-5 BEGIN: per-profile node filter (profile menu entry
          and NodeFilterActivity label share this string) -->
