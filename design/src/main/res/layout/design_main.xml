@@ -129,6 +129,20 @@
                     app:text="@string/blocked_packages" />
                 <!-- FEATURE-1C END -->
 
+                <!-- FEATURE-DOMAINNODE BEGIN: homepage entry for domain
+                     designated nodes. Always visible: the page opens
+                     while stopped too (only picking a node needs a
+                     running Clash). Order (2026-11-02): after app block,
+                     before per-app nodes. -->
+                <com.github.kr328.clash.design.view.LargeActionLabel
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
+                    android:onClick="@{() -> self.request(Request.OpenDomainNodes)}"
+                    app:icon="@drawable/ic_baseline_dns"
+                    app:text="@string/domain_node_title" />
+                <!-- FEATURE-DOMAINNODE END -->
+
                 <!-- FEATURE-2B BEGIN: homepage entry for per-app nodes.
                      Always visible: the page opens while stopped too
                      (only picking a node needs a running Clash). -->
@@ -140,19 +154,6 @@
                     app:icon="@drawable/ic_baseline_vpn_lock"
                     app:text="@string/app_node_packages" />
                 <!-- FEATURE-2B END -->
-
-                <!-- FEATURE-DOMAINNODE BEGIN: homepage entry for domain
-                     designated nodes. Always visible: the page opens
-                     while stopped too (only picking a node needs a
-                     running Clash). -->
-                <com.github.kr328.clash.design.view.LargeActionLabel
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginVertical="@dimen/main_label_margin_vertical"
-                    android:onClick="@{() -> self.request(Request.OpenDomainNodes)}"
-                    app:icon="@drawable/ic_baseline_dns"
-                    app:text="@string/domain_node_title" />
-                <!-- FEATURE-DOMAINNODE END -->
 
                 <com.github.kr328.clash.design.view.LargeActionCard
                     android:layout_width="match_parent"
