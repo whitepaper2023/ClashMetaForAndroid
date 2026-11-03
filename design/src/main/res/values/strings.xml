@@ -195,6 +195,15 @@
     <string name="domain_node_exists">这个域名或关键字已经指定过了</string>
     <string name="domain_node_delete">删除这条域名指定？</string>
     <string name="domain_node_pruned">已清理失效域名指定：%1$s</string>
+    <!-- FEATURE-UPDATE -->
+    <string name="update_check">检查更新</string>
+    <string name="update_available">发现新版本</string>
+    <string name="update_download">下载并安装</string>
+    <string name="update_up_to_date">已是最新版本</string>
+    <string name="update_downloading">正在下载更新…</string>
+    <string name="update_cancel">取消</string>
+    <string name="update_need_permission_title">需要允许安装应用</string>
+    <string name="update_need_permission_message">首次更新需要先允许 Bash 安装未知应用。开启后返回本页，下载好的安装包会直接打开安装。</string>
     <!-- FEATURE-DOMAINNODE END -->
 
     <!-- FEATURE-5 BEGIN: per-profile node filter (profile menu entry
