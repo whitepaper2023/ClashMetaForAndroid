@@ -64,6 +64,15 @@
                     app:icon="@drawable/ic_baseline_save"
                     app:text="@string/backup" />
 
+                <!-- FEATURE-UPDATE: manual update check. Manual only:
+                     no launch-time or background check exists. -->
+                <com.github.kr328.clash.design.view.ActionLabel
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:onClick="@{() -> self.request(Request.CheckUpdate)}"
+                    app:icon="@drawable/ic_baseline_update"
+                    app:text="@string/update_check" />
+
                 <com.github.kr328.clash.design.view.ActionLabel
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
