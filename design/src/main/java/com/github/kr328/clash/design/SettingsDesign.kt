@@ -23,6 +23,8 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         OpenHelp, OpenLogs, OpenAbout,
         // FEATURE-BACKUP: export/import of profiles + bash settings.
         Backup,
+        // FEATURE-UPDATE: manual update check (never automatic).
+        CheckUpdate,
     }
 
     enum class BackupChoice {
@@ -156,6 +158,92 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
                             profileNames.joinToString("、").ifEmpty { "-" }
                         )
                     )
+                    .setPositiveButton(R.string.ok) { _, _ -> ctx.resume(true) }
+                    .setNegativeButton(R.string.cancel) { _, _ -> ctx.resume(false) }
+                    .create()
+                ctx.invokeOnCancellation { dialog.dismiss() }
+                dialog.show()
+                dialog.setOnDismissListener { if (!ctx.isCompleted) ctx.resume(false) }
+            }
+        }
+    }
+
+    // FEATURE-UPDATE: new-version dialog. Returns true only when the
+    // user taps download; anything else (cancel, dismiss) is false.
+    // The caller passes the manifest's version name and notes, already
+    // formatted, so this design knows nothing about UpdateInfo.
+    suspend fun showUpdateAvailable(message: String): Boolean {
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine { ctx ->
+                val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+                    .setTitle(R.string.update_available)
+                    .setMessage(message)
+                    .setPositiveButton(R.string.update_download) { _, _ -> ctx.resume(true) }
+                    .setNegativeButton(R.string.cancel) { _, _ -> ctx.resume(false) }
+                    .create()
+                ctx.invokeOnCancellation { dialog.dismiss() }
+                dialog.show()
+                dialog.setOnDismissListener { if (!ctx.isCompleted) ctx.resume(false) }
+            }
+        }
+    }
+
+    // FEATURE-UPDATE: download progress dialog. The handle lets the
+    // caller update the bar from the download thread (posts to Main
+    // internally via the view system); tapping Cancel only flags
+    // cancellation — the caller still owns dismissing in finally, so a
+    // finished download never leaves a stale dialog behind.
+    class UpdateProgressHandle(
+        private val dialog: AlertDialog,
+        private val bar: android.widget.ProgressBar,
+        val cancelled: java.util.concurrent.atomic.AtomicBoolean,
+    ) {
+        fun setProgress(downloaded: Long, total: Long) {
+            val pct = if (total > 0) {
+                ((downloaded * 100 / total).toInt()).coerceIn(0, 100)
+            } else {
+                0
+            }
+            bar.progress = pct
+        }
+
+        fun dismiss() {
+            dialog.dismiss()
+        }
+    }
+
+    suspend fun showUpdateProgress(): UpdateProgressHandle {
+        return withContext(Dispatchers.Main) {
+            val bar = android.widget.ProgressBar(
+                context, null, android.R.attr.progressBarStyleHorizontal
+            ).apply {
+                max = 100
+                progress = 0
+                val padding = (16 * context.resources.displayMetrics.density).toInt()
+                setPadding(padding, padding, padding, padding)
+            }
+            val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+            val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+                .setTitle(R.string.update_downloading)
+                .setView(bar)
+                .setNegativeButton(R.string.update_cancel) { _, _ ->
+                    cancelled.set(true)
+                }
+                .setCancelable(false)
+                .create()
+            dialog.show()
+            UpdateProgressHandle(dialog, bar, cancelled)
+        }
+    }
+
+    // FEATURE-UPDATE: first-time unknown-sources grant dialog. Returns
+    // true when the user agrees to be taken to system settings.
+    suspend fun showUpdateNeedPermission(): Boolean {
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine { ctx ->
+                val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+                    .setTitle(R.string.update_need_permission_title)
+                    .setMessage(R.string.update_need_permission_message)
                     .setPositiveButton(R.string.ok) { _, _ -> ctx.resume(true) }
                     .setNegativeButton(R.string.cancel) { _, _ -> ctx.resume(false) }
                     .create()
