@@ -16,6 +16,20 @@ import java.util.Date
 import java.util.Locale
 
 class SettingsActivity : BaseActivity<SettingsDesign>() {
+    // FEATURE-UPDATE: APK downloaded while the unknown-sources grant
+    // was missing. Installed from onResume once the grant is present,
+    // so the user does not have to re-download after enabling it.
+    private var pendingInstallFile: java.io.File? = null
+
+    override fun onResume() {
+        super.onResume()
+        val apk = pendingInstallFile
+        if (apk != null && apk.exists() && AppUpdate.canInstall(this)) {
+            pendingInstallFile = null
+            AppUpdate.installApk(this, apk)
+        }
+    }
+
     override suspend fun main() {
         val design = SettingsDesign(this)
 
@@ -49,6 +63,8 @@ class SettingsActivity : BaseActivity<SettingsDesign>() {
                             design.showAbout(queryAppVersionName())
                         SettingsDesign.Request.Backup ->
                             handleBackup(design)
+                        SettingsDesign.Request.CheckUpdate ->
+                            handleUpdate(design)
                     }
                 }
             }
@@ -135,6 +151,46 @@ class SettingsActivity : BaseActivity<SettingsDesign>() {
             }
             SettingsDesign.BackupChoice.Cancel -> Unit
         }
+    }
+
+    // FEATURE-UPDATE: manual check only — nothing here runs on launch
+    // or in the background. Manifest fetch, version compare, download
+    // with progress, SHA-256 verify, then the system installer. A
+    // failed check or download reports via toast and leaves no partial
+    // file behind (downloadApk deletes it on any failure).
+    private suspend fun handleUpdate(design: SettingsDesign) {
+        val info = try {
+            AppUpdate.fetchUpdateInfo()
+        } catch (e: Exception) {
+            design.showExceptionToast(e)
+            return
+        }
+        if (info.versionCode <= AppUpdate.currentVersionCode(this)) {
+            design.showToast(getString(R.string.update_up_to_date), ToastDuration.Long)
+            return
+        }
+        val message = "新版本 ${info.versionName}" +
+            (if (info.notes.isNotBlank()) "\n\n${info.notes}" else "")
+        if (!design.showUpdateAvailable(message)) return
+        val progress = design.showUpdateProgress()
+        val apk = try {
+            AppUpdate.downloadApk(this, info, progress.cancelled) { downloaded, total ->
+                progress.setProgress(downloaded, total)
+            }
+        } catch (e: Exception) {
+            progress.dismiss()
+            if (!progress.cancelled.get()) design.showExceptionToast(e)
+            return
+        }
+        progress.dismiss()
+        if (!AppUpdate.canInstall(this)) {
+            pendingInstallFile = apk
+            if (design.showUpdateNeedPermission()) {
+                AppUpdate.openUnknownSourcesSettings(this)
+            }
+            return
+        }
+        AppUpdate.installApk(this, apk)
     }
 
     private suspend fun queryAppVersionName(): String {
