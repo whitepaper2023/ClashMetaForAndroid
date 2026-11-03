@@ -16,6 +16,9 @@
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- FEATURE-UPDATE: manual in-app update install (system installer
+         still asks the user; this permission alone installs nothing). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Workaround for Android 17+ cross profile loopback networking restrictions.
          This permission allows CMFA to connect to loopback addresses and ports bound
@@ -152,6 +155,17 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/settings" />
+        <!-- FEATURE-UPDATE: shares only the downloaded update APK in
+             cacheDir/update/ with the system installer. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths" />
+        </provider>
         <activity
             android:name=".NetworkSettingsActivity"
             android:configChanges="uiMode"
