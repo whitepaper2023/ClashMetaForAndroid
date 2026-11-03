@@ -18,6 +18,8 @@ import com.github.kr328.clash.core.model.Proxy
 import com.github.kr328.clash.design.ProxyDesign
 import com.github.kr328.clash.design.R as DesignR
 import com.github.kr328.clash.design.model.ProxyState
+import com.github.kr328.clash.design.ui.ToastDuration
+import com.github.kr328.clash.service.model.Profile
 import com.github.kr328.clash.service.store.ServiceStore
 import com.github.kr328.clash.service.store.PastedProxyEntry
 import com.github.kr328.clash.service.store.encodePastedProxies
@@ -25,6 +27,7 @@ import com.github.kr328.clash.service.store.parsePastedProxies
 import com.github.kr328.clash.service.store.parseProxyFilterRules
 import com.github.kr328.clash.service.util.sendOverrideChanged
 import com.github.kr328.clash.util.withClash
+import com.github.kr328.clash.util.withProfile
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
@@ -81,6 +84,25 @@ class ProxyActivity : BaseActivity<ProxyDesign>() {
                                 // start is harmless).
                                 design.requests.send(ProxyDesign.Request.ReloadAll)
                             }
+                        }
+                        // FEATURE-USAGE-REFRESH: a subscription refresh
+                        // finishes here (completed and/or loaded). Either
+                        // way the rows must be re-queried so the usage
+                        // node shows its new label; ReloadAll is
+                        // idempotent, so a duplicate reload is harmless.
+                        Event.ProfileUpdateCompleted -> {
+                            design.requests.send(ProxyDesign.Request.ReloadAll)
+                        }
+                        Event.ProfileUpdateFailed -> {
+                            val name = withProfile { queryActive()?.name } ?: ""
+                            design.showToast(
+                                getString(
+                                    DesignR.string.toast_profile_updated_failed,
+                                    name,
+                                    ""
+                                ),
+                                ToastDuration.Long
+                            )
                         }
                         else -> Unit
                     }
@@ -174,6 +196,27 @@ class ProxyActivity : BaseActivity<ProxyDesign>() {
                                 }
 
                                 design.requests.send(ProxyDesign.Request.Reload(it.index))
+                            }
+                        }
+                        // FEATURE-USAGE-REFRESH: long-press on a usage
+                        // node re-downloads the active subscription (the
+                        // same update() the Profiles screen uses). Rows
+                        // refresh when ProfileLoaded /
+                        // ProfileUpdateCompleted fires; no immediate
+                        // Reload here, it would only show the old names
+                        // while the download is still in flight. File
+                        // profiles have no subscription to refresh, so
+                        // they are left alone.
+                        is ProxyDesign.Request.RefreshProfile -> {
+                            launch {
+                                withProfile {
+                                    val active = queryActive()
+                                    if (active != null && active.imported &&
+                                        active.type != Profile.Type.File
+                                    ) {
+                                        update(active.uuid)
+                                    }
+                                }
                             }
                         }
                         is ProxyDesign.Request.PatchMode -> {

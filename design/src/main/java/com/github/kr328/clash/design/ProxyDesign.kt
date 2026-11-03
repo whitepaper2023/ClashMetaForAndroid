@@ -40,6 +40,9 @@ class ProxyDesign(
         data class UrlTest(val index: Int) : Request()
         // FEATURE-4: long-press single test (isGroup rows test the group).
         data class TestProxy(val index: Int, val name: String, val isGroup: Boolean) : Request()
+        // FEATURE-USAGE-REFRESH: long-press on a display-only usage node
+        // refreshes the active subscription instead of testing it.
+        data class RefreshProfile(val index: Int) : Request()
     }
 
     private val binding = DesignProxyBinding
@@ -123,8 +126,20 @@ class ProxyDesign(
                         ProxyAdapter(config, { name ->
                             requests.trySend(Request.Select(index, name))
                         }) { proxy ->
-                            // FEATURE-4: long-press single test.
-                            requests.trySend(Request.TestProxy(index, proxy.name, proxy.isGroup))
+                            // FEATURE-USAGE-REFRESH: a display-only usage
+                            // node (📊 InstaBox / 📈 Oracle-OW name prefix)
+                            // is a fake socks5 127.0.0.1:1 entry whose label
+                            // IS the usage figure. Testing it always yields
+                            // -1 and can never update its label, so a
+                            // long-press refreshes the active subscription
+                            // instead; the re-downloaded file carries the
+                            // latest usage in the node name. Real nodes
+                            // and groups keep the FEATURE-4 single test.
+                            if (proxy.name.startsWith("📊") || proxy.name.startsWith("📈"))
+                                requests.trySend(Request.RefreshProfile(index))
+                            else
+                                // FEATURE-4: long-press single test.
+                                requests.trySend(Request.TestProxy(index, proxy.name, proxy.isGroup))
                         }
                     }
                 ) {

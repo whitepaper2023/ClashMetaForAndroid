@@ -252,11 +252,23 @@ object PasteProxyParser {
         if (security == "reality") {
             val publicKey = params["pbk"]?.takeIf { it.isNotEmpty() }
                 ?: throw PasteParseException("Reality 链接里没有公钥（pbk）")
+            // FEATURE-REALITY-PASTE: mihomo requires client-fingerprint
+            // non-empty for Reality. Map the link's fp param; when the
+            // link carries none, default to chrome (the value the main
+            // subscription uses). Previously fp was dropped entirely,
+            // so a pasted Reality node always failed its handshake.
+            val fingerprint = params["fp"]?.takeIf { it.isNotEmpty() } ?: "chrome"
+            body.add("  client-fingerprint: ${yamlStr(fingerprint)}")
             body.add("  reality-opts:")
             body.add("    public-key: ${yamlStr(publicKey)}")
             params["sid"]?.takeIf { it.isNotEmpty() }?.let {
                 body.add("    short-id: ${yamlStr(it)}")
             }
+            // FEATURE-REALITY-PASTE: Xray 26.x Reality requires the client
+            // to offer an MLKEM768 share; without it the server rejects
+            // the handshake (REALITY authentication failed) and the node
+            // tests -1 even with a correct fingerprint.
+            body.add("    support-x25519mlkem768: true")
         }
         body.add("  udp: true")
         return finish(requireName(uri, "$host:$port"), "vless", body)
