@@ -86,6 +86,16 @@ class UiStore(context: Context) {
         defaultValue = true,
     )
 
+    // FEATURE-BACKUP-IMPORT-BG: last backup import result, written by
+    // BackupImportRunner. Empty = no import has run yet (or the note
+    // was cleared). The Settings page shows this string persistently
+    // under the backup entry, so the result survives leaving the page
+    // and does not depend on a transient toast.
+    var lastBackupImportResult: String by store.string(
+        key = "last_backup_import_result",
+        defaultValue = "",
+    )
+
     // FEATURE-PROFORDER: profile card order, as comma-separated UUIDs.
     // Profiles missing from this list (e.g. newly created) sort last in
     // their original order; the list is rewritten on every drag reorder.
