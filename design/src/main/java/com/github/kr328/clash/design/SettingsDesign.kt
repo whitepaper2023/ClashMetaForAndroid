@@ -6,6 +6,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.widget.doOnTextChanged
 import com.github.kr328.clash.design.databinding.DesignAboutBinding
 import com.github.kr328.clash.design.databinding.DesignSettingsBinding
+import com.github.kr328.clash.design.store.UiStore
 import com.github.kr328.clash.design.util.applyFrom
 import com.github.kr328.clash.design.util.bindAppBarElevation
 import com.github.kr328.clash.design.util.layoutInflater
@@ -15,7 +16,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
-class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context) {
+class SettingsDesign(
+    context: Context,
+    private val uiStore: UiStore,
+) : Design<SettingsDesign.Request>(context) {
     enum class Request {
         StartApp, StartNetwork, StartOverride, StartMetaFeature,
         // Moved here from the homepage: Help, Logs and About now live
@@ -43,6 +47,44 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         binding.activityBarLayout.applyFrom(context)
 
         binding.scrollRoot.bindAppBarElevation(binding.activityBarLayout)
+
+        // FEATURE-BACKUP-IMPORT-BG: persistent import result note.
+        refreshLastImportResult()
+    }
+
+    // FEATURE-BACKUP-IMPORT-BG: re-reads the stored result (e.g. from
+    // onResume when returning to Settings after a background import
+    // finished). The layout hides the note when the string is blank.
+    fun refreshLastImportResult() {
+        binding.lastImportResult = uiStore.lastBackupImportResult
+        binding.executePendingBindings()
+    }
+
+    // FEATURE-BACKUP-IMPORT-BG: tapping the note clears it. The note
+    // also refreshes on the next import run (the runner overwrites the
+    // stored string at start), so clearing is only for tidiness.
+    fun clearLastImportResult() {
+        uiStore.lastBackupImportResult = ""
+        binding.lastImportResult = ""
+        binding.executePendingBindings()
+    }
+
+    // FEATURE-BACKUP-IMPORT-BG: result dialog shown when an import
+    // finishes while this page is still open. A dialog, not a toast:
+    // the old toast was the second half of the bug (easy to miss).
+    suspend fun showBackupImportResult(message: String) {
+        withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine { ctx ->
+                val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+                    .setTitle(R.string.backup_import)
+                    .setMessage(message)
+                    .setPositiveButton(R.string.ok) { _, _ -> ctx.resume(Unit) }
+                    .create()
+                ctx.invokeOnCancellation { dialog.dismiss() }
+                dialog.show()
+                dialog.setOnDismissListener { if (!ctx.isCompleted) ctx.resume(Unit) }
+            }
+        }
     }
 
     fun request(request: Request) {
