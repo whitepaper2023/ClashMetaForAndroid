@@ -123,7 +123,7 @@
 
     <!-- FEATURE-BACKUP: export/import in Settings. -->
     <string name="backup">Backup</string>
-    <string name="backup_dialog_message">Export saves all saved profiles and Bash settings (blocked apps, per-app nodes, pasted nodes, proxy filters) into one password-encrypted file that only Bash can open. A backup contains subscription URLs and keys, so keep the file and its password private. If you forget the password, Bash cannot recover the backup. Import adds the profiles as new ones and never deletes existing profiles; per-app settings are merged, global settings are overwritten.</string>
+    <string name="backup_dialog_message">Export saves all saved profiles and Bash settings (blocked apps, per-app nodes, pasted nodes, proxy filters, the Override page including DNS settings, and display preferences) into one password-encrypted file that only Bash can open. A backup contains subscription URLs and keys, so keep the file and its password private. If you forget the password, Bash cannot recover the backup. Import adds the profiles as new ones and never deletes existing profiles; per-app settings are merged, global and Override settings are overwritten.</string>
     <string name="backup_export_password_title">Set backup password</string>
     <string name="backup_import_password_title">Enter backup password</string>
     <string name="backup_password">Password</string>
