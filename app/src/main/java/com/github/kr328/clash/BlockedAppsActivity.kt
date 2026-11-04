@@ -50,7 +50,11 @@ class BlockedAppsActivity : BaseActivity<AccessControlDesign>() {
             }
         }
 
-        val design = AccessControlDesign(this, uiStore, blocked)
+        // FEATURE-SYSTEM-MARK: no system-apps menu item on this page —
+        // it lists system apps unconditionally since 2.11.42, so the
+        // old checkbox reloaded an identical list. The VPN
+        // access-control page keeps its working toggle.
+        val design = AccessControlDesign(this, uiStore, blocked, showSystemAppsMenu = false)
 
         setContentDesign(design)
 

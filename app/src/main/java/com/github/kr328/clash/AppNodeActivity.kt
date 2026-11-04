@@ -8,6 +8,8 @@
 package com.github.kr328.clash
 
 import android.Manifest.permission.INTERNET
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -127,11 +129,11 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
             }
         }
 
-        val design = AppNodeDesign(this)
+        val design = AppNodeDesign(this, uiStore)
 
         setContentDesign(design)
 
-        val apps = loadApps(rules)
+        var apps = loadApps(rules)
         design.patchApps(apps, rules, blocked)
 
         while (isActive) {
@@ -141,6 +143,13 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
                 }
                 design.requests.onReceive {
                     when (it) {
+                        // FEATURE-SYSTEM-MARK: reload with the new
+                        // toggle state; patchApps re-applies the search
+                        // filter, so typed text survives the reload.
+                        is AppNodeDesign.Request.ToggleSystemApps -> {
+                            apps = loadApps(rules)
+                            design.patchApps(apps, rules, blocked)
+                        }
                         is AppNodeDesign.Request.Pick -> {
                             val pkg = it.packageName
                             if (!clashRunning) {
@@ -218,6 +227,7 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
 
     private suspend fun loadApps(rules: Map<String, String>): List<AppInfo> =
         withContext(Dispatchers.IO) {
+            val showSystem = uiStore.appNodeSystemApp
             val pm = packageManager
             val packages = pm.getInstalledPackages(PackageManager.GET_PERMISSIONS)
 
@@ -229,7 +239,16 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
                     it.applicationInfo != null
                 }
                 .filter {
-                    it.requestedPermissions?.contains(INTERNET) == true || it.applicationInfo!!.uid < android.os.Process.FIRST_APPLICATION_UID
+                    // FEATURE-SYSTEM-MARK: same inclusion as the
+                    // blocklist page — system apps count even without a
+                    // declared INTERNET permission — then the toggle
+                    // decides whether system rows survive at all.
+                    it.isSystemApp ||
+                        it.requestedPermissions?.contains(INTERNET) == true ||
+                        it.applicationInfo!!.uid < android.os.Process.FIRST_APPLICATION_UID
+                }
+                .filter {
+                    showSystem || !it.isSystemApp
                 }
                 .map {
                     it.toAppInfo(pm)
@@ -239,6 +258,15 @@ class AppNodeActivity : BaseActivity<AppNodeDesign>() {
                         .thenBy { it.label }
                 )
                 .toList()
+        }
+
+    private val PackageInfo.isSystemApp: Boolean
+        get() {
+            // FEATURE-SYSTEM-MARK: same flag test as toAppInfo and the
+            // blocklist page (FLAG_UPDATED_SYSTEM_APP included).
+            return applicationInfo?.flags?.and(
+                ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+            ) != 0
         }
 }
 // FEATURE-2 END
