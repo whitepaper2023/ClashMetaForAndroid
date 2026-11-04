@@ -17,6 +17,10 @@ dependencies {
     implementation(project(":common"))
 
     implementation(libs.kotlin.coroutine)
+    // FEATURE-BACKUP-OVERRIDE: serialize the Persist Override slot
+    // (ConfigurationOverride is @Serializable in :core); the app
+    // defines no @Serializable class of its own, so no plugin needed.
+    implementation(libs.kotlin.serialization.json)
     implementation(libs.androidx.core)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.fragment)
