@@ -78,6 +78,14 @@ class UiStore(context: Context) {
         defaultValue = false,
     )
 
+    // FEATURE-SYSTEM-MARK: designated-node page's system-apps toggle.
+    // Default true so the page keeps listing system apps out of the box
+    // (same as the blocklist page since 2.11.42); unchecking hides them.
+    var appNodeSystemApp: Boolean by store.boolean(
+        key = "app_node_system_app",
+        defaultValue = true,
+    )
+
     // FEATURE-PROFORDER: profile card order, as comma-separated UUIDs.
     // Profiles missing from this list (e.g. newly created) sort last in
     // their original order; the list is rewritten on every drag reorder.
