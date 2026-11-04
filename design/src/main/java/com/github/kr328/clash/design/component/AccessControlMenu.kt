@@ -15,6 +15,12 @@ class AccessControlMenu(
     menuView: View,
     private val uiStore: UiStore,
     private val requests: Channel<Request>,
+    // FEATURE-SYSTEM-MARK: the blocklist page passes false. Since
+    // 2.11.42 it lists system apps unconditionally, so its old
+    // system-apps checkbox reloaded an identical list — a dead
+    // control. Hiding it here (instead of deleting the shared item)
+    // keeps the VPN access-control page's working toggle intact.
+    private val showSystemApps: Boolean = true,
 ) : PopupMenu.OnMenuItemClickListener {
     private val menu = PopupMenu(context, menuView)
 
@@ -95,7 +101,10 @@ class AccessControlMenu(
                 menu.menu.findItem(R.id.update_time).isChecked = true
         }
 
-        menu.menu.findItem(R.id.system_apps).isChecked = uiStore.accessControlSystemApp
+        menu.menu.findItem(R.id.system_apps).isVisible = showSystemApps
+        if (showSystemApps) {
+            menu.menu.findItem(R.id.system_apps).isChecked = uiStore.accessControlSystemApp
+        }
         menu.menu.findItem(R.id.reverse).isChecked = uiStore.accessControlReverse
 
         menu.setOnMenuItemClickListener(this)
