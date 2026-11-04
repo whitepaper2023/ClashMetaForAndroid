@@ -29,10 +29,35 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <include
-                    layout="@layout/common_activity_bar"
+                <!-- FEATURE-SYSTEM-MARK: title row with ⋮ menu anchor,
+                     same pattern as design_access_control.xml. -->
+                <RelativeLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content"
+                    android:paddingEnd="@dimen/item_tailing_margin">
+
+                    <include
+                        layout="@layout/common_activity_bar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:layout_toStartOf="@id/menu_view" />
+
+                    <ImageView
+                        android:id="@+id/menu_view"
+                        android:layout_width="@dimen/item_tailing_component_size"
+                        android:layout_height="@dimen/item_tailing_component_size"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginStart="@dimen/item_tailing_margin"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:contentDescription="@string/more"
+                        android:focusable="true"
+                        android:padding="@dimen/toolbar_image_action_padding"
+                        android:src="@drawable/ic_baseline_more_vert" />
+                </RelativeLayout>
 
                 <androidx.appcompat.widget.AppCompatEditText
                     android:id="@+id/app_node_search_input"

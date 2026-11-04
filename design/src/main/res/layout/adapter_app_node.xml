@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout xmlns:android="http://schemas.android.com/apk/res/android">
     <data>
+        <!-- FEATURE-SYSTEM-MARK: View import required for the marker
+             visibility expression (see adapter_app.xml note). -->
+        <import type="android.view.View" />
         <variable
             name="app"
             type="com.github.kr328.clash.design.model.AppInfo" />
@@ -58,6 +61,16 @@
                 android:layout_marginTop="@dimen/item_text_margin"
                 android:text="@{node}"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+
+            <!-- FEATURE-SYSTEM-MARK: same marker as the blocklist rows,
+                 so the system-apps toggle's effect is visible per row. -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/item_text_margin"
+                android:text="@string/system_apps"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                android:visibility="@{app.systemApp ? View.VISIBLE : View.GONE}" />
         </LinearLayout>
 
         <com.google.android.material.checkbox.MaterialCheckBox
