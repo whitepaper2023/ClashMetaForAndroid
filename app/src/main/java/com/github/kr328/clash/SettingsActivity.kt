@@ -9,6 +9,7 @@ import com.github.kr328.clash.design.ui.ToastDuration
 import com.github.kr328.clash.design.util.showExceptionToast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -28,10 +29,15 @@ class SettingsActivity : BaseActivity<SettingsDesign>() {
             pendingInstallFile = null
             AppUpdate.installApk(this, apk)
         }
+        // FEATURE-BACKUP-IMPORT-BG: returning to Settings after a
+        // background import finished refreshes the persistent note.
+        // design is null until main() sets it; the safe call covers
+        // the first onResume before that.
+        (design as? SettingsDesign)?.refreshLastImportResult()
     }
 
     override suspend fun main() {
-        val design = SettingsDesign(this)
+        val design = SettingsDesign(this, uiStore)
 
         setContentDesign(design)
 
@@ -103,12 +109,25 @@ class SettingsActivity : BaseActivity<SettingsDesign>() {
                 }
             }
             SettingsDesign.BackupChoice.Import -> {
+                // FEATURE-BACKUP-IMPORT-BG: never run two imports at
+                // once (each run creates NEW profiles, so a double run
+                // would duplicate every profile).
+                if (BackupImportRunner.isRunning) {
+                    design.showToast("正在导入备份，请稍候", ToastDuration.Long)
+                    return
+                }
                 val uri = startActivityForResult(
                     ActivityResultContracts.GetContent(),
                     "*/*"
                 ) ?: return
                 val password = design.showBackupImportPassword() ?: return
                 var preview: BackupPreview? = null
+                // True once the preview has been handed to the runner:
+                // only the runner may then delete preview.dir, in its
+                // own finally after the import finishes. Deleting it
+                // here would pull the source out from under a running
+                // background import.
+                var handedOff = false
                 try {
                     preview = try {
                         parseBackupPreview(this@SettingsActivity, uri, password)
@@ -121,32 +140,42 @@ class SettingsActivity : BaseActivity<SettingsDesign>() {
                     }
                     if (!design.showBackupImportConfirm(preview.manifest.profiles.map { it.name }))
                         return
-                    // preview is non-null here, but a var captured by the
-                    // non-inline withContext lambda loses smart-cast, so
-                    // copy it to a val first (otherwise this may not compile).
+                    // preview is non-null here, but a var captured by a
+                    // lambda loses smart-cast, so copy it to a val first.
                     val previewToImport = preview
-                    val result = withContext(Dispatchers.IO) {
-                        importBackup(this@SettingsActivity, previewToImport)
+                    // FEATURE-BACKUP-IMPORT-BG: hand the import to the
+                    // process-level runner and return at once. Leaving
+                    // this page (or a page recreation) no longer cancels
+                    // it; the runner writes the result to the store and
+                    // the Settings page shows it persistently.
+                    if (!BackupImportRunner.startImport(applicationContext, previewToImport)) {
+                        design.showToast("正在导入备份，请稍候", ToastDuration.Long)
+                        return
                     }
-                    if (result.failedNames.isEmpty()) {
-                        design.showToast(
-                            getString(R.string.backup_imported, result.importedNames.size),
-                            ToastDuration.Long
-                        )
-                    } else {
-                        design.showToast(
-                            getString(
-                                R.string.backup_import_partial,
-                                result.importedNames.size,
-                                result.failedNames.joinToString("、")
-                            ),
-                            ToastDuration.Long
+                    handedOff = true
+                    design.showToast("备份正在后台导入，完成后会在设置页显示结果", ToastDuration.Long)
+                    // If this page is still open when the import
+                    // finishes, show the result as a dialog (not a
+                    // toast — the old toast was easy to miss). This
+                    // launch is a child of the page scope, so leaving
+                    // the page cancels only the dialog, never the import.
+                    launch {
+                        try {
+                            BackupImportRunner.currentJob?.join()
+                        } catch (_: Exception) {
+                            return@launch
+                        }
+                        design.refreshLastImportResult()
+                        design.showBackupImportResult(
+                            uiStore.lastBackupImportResult
                         )
                     }
                 } catch (e: Exception) {
                     design.showExceptionToast(e)
                 } finally {
-                    preview?.dir?.deleteRecursively()
+                    if (!handedOff) {
+                        preview?.dir?.deleteRecursively()
+                    }
                 }
             }
             SettingsDesign.BackupChoice.Cancel -> Unit

@@ -10,8 +10,15 @@ import com.github.kr328.clash.service.util.importedDir
 import com.github.kr328.clash.service.util.pendingDir
 import com.github.kr328.clash.service.util.sendOverrideChanged
 import com.github.kr328.clash.util.withProfile
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -497,3 +504,91 @@ suspend fun importBackup(context: Context, preview: BackupPreview): ImportResult
     context.sendOverrideChanged()
     return ImportResult(importedNames, failedNames)
 }
+
+// FEATURE-BACKUP-IMPORT-BG BEGIN: background backup import runner.
+// Root cause it fixes (Lu, 2026-11-03): import used to run as a child
+// of the Settings page's own MainScope, so leaving the page (or a
+// page recreation) cancelled BaseActivity's scope mid-import: profiles
+// are created one by one, so the import stopped part-way (openworld,
+// the last one, never got created) and the result toast never fired.
+// This runner owns a process-level scope instead: once the user
+// confirms an import, it runs to completion no matter what the
+// Settings page does. Process death still stops it — only a foreground
+// service or WorkManager would survive that, and neither is worth it
+// for a seconds-long local import.
+// Ownership: the caller hands over a parsed preview (its temp dir) and
+// must NOT delete preview.dir afterwards — the runner deletes it in
+// its own finally once the import (or its failure) is done.
+// Result persistence: the runner writes a human-readable result string
+// to UiStore.lastBackupImportResult at start ("导入进行中…") and at
+// the end (success count + failed names, or the failure message).
+// The Settings page shows that string persistently; a still-open page
+// also gets the finished job via currentJob.join() and shows a dialog.
+object BackupImportRunner {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    @Volatile
+    var isRunning: Boolean = false
+        private set
+
+    var currentJob: Job? = null
+        private set
+
+    // Returns false when an import is already running: the caller must
+    // not start a second one (each run creates NEW profiles, so a
+    // double run would duplicate every profile).
+    fun startImport(appContext: Context, preview: BackupPreview): Boolean {
+        if (isRunning) return false
+        isRunning = true
+        val ui = UiStore(appContext)
+        ui.lastBackupImportResult = formatImportResult(
+            status = "导入进行中",
+            importedNames = emptyList(),
+            failedNames = emptyList(),
+        )
+        currentJob = scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    importBackup(appContext, preview)
+                }
+                ui.lastBackupImportResult = formatImportResult(
+                    status = "导入完成",
+                    importedNames = result.importedNames,
+                    failedNames = result.failedNames,
+                )
+            } catch (e: Exception) {
+                ui.lastBackupImportResult = formatImportResult(
+                    status = "导入失败",
+                    importedNames = emptyList(),
+                    failedNames = emptyList(),
+                    error = e.message,
+                )
+            } finally {
+                preview.dir.deleteRecursively()
+                isRunning = false
+            }
+        }
+        return true
+    }
+
+    private fun formatImportResult(
+        status: String,
+        importedNames: List<String>,
+        failedNames: List<String>,
+        error: String? = null,
+    ): String {
+        val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
+        val detail = when {
+            error != null -> "（$error）"
+            importedNames.isEmpty() && failedNames.isEmpty() -> ""
+            failedNames.isEmpty() ->
+                "：成功 ${importedNames.size} 个（${importedNames.joinToString("、")}）"
+            else ->
+                "：成功 ${importedNames.size} 个" +
+                    (if (importedNames.isNotEmpty()) "（${importedNames.joinToString("、")}）" else "") +
+                    "；失败 ${failedNames.size} 个：${failedNames.joinToString("、")}"
+        }
+        return "$time $status$detail"
+    }
+}
+// FEATURE-BACKUP-IMPORT-BG END
