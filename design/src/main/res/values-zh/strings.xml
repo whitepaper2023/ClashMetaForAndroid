@@ -38,7 +38,7 @@
 
     <!-- FEATURE-BACKUP：设置页备份导入。 -->
     <string name="backup">备份</string>
-    <string name="backup_dialog_message">导出会把全部已保存配置和 Bash 设置（应用拉黑、指定节点、粘贴节点、节点筛选）存成一个密码加密文件，只有 Bash 能打开。备份里含订阅链接和密钥，文件和密码都要妥善保管，不要外传。密码一旦忘了，Bash 就找不回来了。导入会把配置以新增方式加进来，不会删除已有配置；按应用的设置会合并，全局设置会被覆盖。</string>
+    <string name="backup_dialog_message">导出会把全部已保存配置和 Bash 设置（应用拉黑、指定节点、粘贴节点、节点筛选、覆写页含 DNS 设置、界面显示设置）存成一个密码加密文件，只有 Bash 能打开。备份里含订阅链接和密钥，文件和密码都要妥善保管，不要外传。密码一旦忘了，Bash 就找不回来了。导入会把配置以新增方式加进来，不会删除已有配置；按应用的设置会合并，全局设置和覆写设置会被覆盖。</string>
     <string name="backup_export_password_title">设置备份密码</string>
     <string name="backup_import_password_title">输入备份密码</string>
     <string name="backup_password">密码</string>
