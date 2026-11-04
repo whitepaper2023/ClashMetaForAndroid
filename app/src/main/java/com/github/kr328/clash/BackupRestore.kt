@@ -2,7 +2,16 @@ package com.github.kr328.clash
 
 import android.content.Context
 import android.net.Uri
+import com.github.kr328.clash.core.Clash
+import com.github.kr328.clash.core.model.ConfigurationOverride
+import com.github.kr328.clash.core.model.ProxySort
+import com.github.kr328.clash.design.model.AppInfoSort
+import com.github.kr328.clash.design.model.DarkMode
 import com.github.kr328.clash.design.store.UiStore
+import com.github.kr328.clash.util.withClash
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import com.github.kr328.clash.service.model.AccessControlMode
 import com.github.kr328.clash.service.model.Profile
 import com.github.kr328.clash.service.store.ServiceStore
@@ -50,6 +59,15 @@ private const val BACKUP_VERSION: Byte = 1
 private const val BACKUP_SALT_LEN = 16
 private const val BACKUP_NONCE_LEN = 12
 private const val BACKUP_PBKDF2_ITERATIONS = 100_000
+
+// FEATURE-BACKUP-OVERRIDE: JSON for the Persist Override slot.
+// ignoreUnknownKeys lets a newer backup (extra override fields) still
+// restore on this build; explicitNulls=false omits null "do not
+// modify" fields on export so decode falls back to the class defaults.
+private val backupJson = Json {
+    ignoreUnknownKeys = true
+    explicitNulls = false
+}
 
 private fun deriveBackupKey(password: String, salt: ByteArray): SecretKeySpec {
     val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
@@ -135,12 +153,34 @@ data class BackupSettings(
     val allowIpv6: Boolean,
     val tunStackMode: String,
     val dynamicNotification: Boolean,
+    // FEATURE-BACKUP-OVERRIDE: display prefs that used to be lost on
+    // restore. Nullable = absent in old backups, in which case import
+    // leaves the current value alone instead of overwriting it.
+    // Deliberately excluded: enableVpn (must never flip VPN state on
+    // import), hideAppIcon/hideFromRecents (launcher-alias side
+    // effects), proxyLastGroup (stale group reference) and
+    // lastBackupImportResult (transient import note, not a setting).
+    val darkMode: String? = null,
+    val proxySort: String? = null,
+    val proxyLine: Int? = null,
+    val proxyExcludeNotSelectable: Boolean? = null,
+    val accessControlSort: String? = null,
+    val accessControlReverse: Boolean? = null,
+    val accessControlSystemApp: Boolean? = null,
+    val appNodeSystemApp: Boolean? = null,
 )
 
 data class BackupManifest(
     val exportedAt: Long,
     val profiles: List<BackupProfile>,
     val settings: BackupSettings,
+    // FEATURE-BACKUP-OVERRIDE: whole Persist Override slot (the entire
+    // Override page incl. the DNS section) as kotlinx-serialized JSON.
+    // Null = backup made before this feature, or the override query
+    // failed at export — import then leaves the current override
+    // untouched and never clears it. The Session slot (transient, e.g.
+    // the proxy page's mode switch) is deliberately not backed up.
+    val overrideJson: String? = null,
 )
 
 data class BackupPreview(
@@ -151,6 +191,10 @@ data class BackupPreview(
 data class ImportResult(
     val importedNames: List<String>,
     val failedNames: List<String>,
+    // FEATURE-BACKUP-OVERRIDE: true when the backup carried an override
+    // but decoding or patching it failed — profiles still imported,
+    // so this is reported alongside the result, not as an import error.
+    val overrideFailed: Boolean = false,
 )
 
 private fun Set<String>.toJsonArray(): JSONArray {
@@ -196,6 +240,14 @@ private fun BackupManifest.toJson(): JSONObject {
     settingsJson.put("allowIpv6", settings.allowIpv6)
     settingsJson.put("tunStackMode", settings.tunStackMode)
     settingsJson.put("dynamicNotification", settings.dynamicNotification)
+    settings.darkMode?.let { settingsJson.put("darkMode", it) }
+    settings.proxySort?.let { settingsJson.put("proxySort", it) }
+    settings.proxyLine?.let { settingsJson.put("proxyLine", it) }
+    settings.proxyExcludeNotSelectable?.let { settingsJson.put("proxyExcludeNotSelectable", it) }
+    settings.accessControlSort?.let { settingsJson.put("accessControlSort", it) }
+    settings.accessControlReverse?.let { settingsJson.put("accessControlReverse", it) }
+    settings.accessControlSystemApp?.let { settingsJson.put("accessControlSystemApp", it) }
+    settings.appNodeSystemApp?.let { settingsJson.put("appNodeSystemApp", it) }
 
     val root = JSONObject()
     root.put("format", "bash-backup")
@@ -203,6 +255,7 @@ private fun BackupManifest.toJson(): JSONObject {
     root.put("exportedAt", exportedAt)
     root.put("profiles", profilesJson)
     root.put("settings", settingsJson)
+    overrideJson?.let { root.put("override", it) }
     return root
 }
 
@@ -228,6 +281,15 @@ private fun parseBackupManifest(json: JSONObject): BackupManifest {
         )
     }
     val s = json.optJSONObject("settings") ?: JSONObject()
+    // FEATURE-BACKUP-OVERRIDE: a key present with a null value counts
+    // as absent (old backups have no such keys at all, and must keep
+    // the current values instead of overwriting them with defaults).
+    fun optStr(key: String): String? =
+        if (s.has(key) && !s.isNull(key)) s.optString(key).takeIf { it.isNotEmpty() } else null
+    fun optBool(key: String): Boolean? =
+        if (s.has(key) && !s.isNull(key)) s.optBoolean(key) else null
+    fun optInt(key: String): Int? =
+        if (s.has(key) && !s.isNull(key)) s.optInt(key) else null
     val settings = BackupSettings(
         blockedPackages = s.optJSONArray("blockedPackages")?.toStringSet() ?: emptySet(),
         appNodeRules = s.optJSONArray("appNodeRules")?.toStringSet() ?: emptySet(),
@@ -244,11 +306,20 @@ private fun parseBackupManifest(json: JSONObject): BackupManifest {
         allowIpv6 = s.optBoolean("allowIpv6", false),
         tunStackMode = s.optString("tunStackMode", "mips"),
         dynamicNotification = s.optBoolean("dynamicNotification", true),
+        darkMode = optStr("darkMode"),
+        proxySort = optStr("proxySort"),
+        proxyLine = optInt("proxyLine"),
+        proxyExcludeNotSelectable = optBool("proxyExcludeNotSelectable"),
+        accessControlSort = optStr("accessControlSort"),
+        accessControlReverse = optBool("accessControlReverse"),
+        accessControlSystemApp = optBool("accessControlSystemApp"),
+        appNodeSystemApp = optBool("appNodeSystemApp"),
     )
     return BackupManifest(
         exportedAt = json.optLong("exportedAt", 0L),
         profiles = profiles,
         settings = settings,
+        overrideJson = json.optString("override").takeIf { it.isNotEmpty() },
     )
 }
 
@@ -267,6 +338,19 @@ suspend fun exportBackup(context: Context, out: OutputStream, password: String):
         }
         val service = ServiceStore(context)
         val ui = UiStore(context)
+        // FEATURE-BACKUP-OVERRIDE: the Persist Override slot is the
+        // only place the Override page (incl. DNS) lives — it is not
+        // in ServiceStore/UiStore, which is why backups used to lose
+        // it. A query failure must never fail the whole export (the
+        // profiles query above already proves the service is up, so
+        // this is belt-and-braces); a null override simply means the
+        // import will leave the current override untouched.
+        val overrideJson = try {
+            val override = withClash { queryOverride(Clash.OverrideSlot.Persist) }
+            backupJson.encodeToString(ConfigurationOverride.serializer(), override)
+        } catch (_: Exception) {
+            null
+        }
         val manifest = BackupManifest(
             exportedAt = System.currentTimeMillis(),
             profiles = profiles.map {
@@ -295,7 +379,16 @@ suspend fun exportBackup(context: Context, out: OutputStream, password: String):
                 allowIpv6 = service.allowIpv6,
                 tunStackMode = service.tunStackMode,
                 dynamicNotification = service.dynamicNotification,
+                darkMode = ui.darkMode.name,
+                proxySort = ui.proxySort.name,
+                proxyLine = ui.proxyLine,
+                proxyExcludeNotSelectable = ui.proxyExcludeNotSelectable,
+                accessControlSort = ui.accessControlSort.name,
+                accessControlReverse = ui.accessControlReverse,
+                accessControlSystemApp = ui.accessControlSystemApp,
+                appNodeSystemApp = ui.appNodeSystemApp,
             ),
+            overrideJson = overrideJson,
         )
         val random = SecureRandom()
         val salt = ByteArray(BACKUP_SALT_LEN).also { random.nextBytes(it) }
@@ -498,11 +591,37 @@ suspend fun importBackup(context: Context, preview: BackupPreview): ImportResult
     service.allowIpv6 = s.allowIpv6
     service.tunStackMode = s.tunStackMode
     service.dynamicNotification = s.dynamicNotification
+    // FEATURE-BACKUP-OVERRIDE: display prefs restore only when the
+    // backup actually carries them (old backups leave current values
+    // alone); an unknown enum name keeps the current value.
+    s.darkMode?.let { try { ui.darkMode = DarkMode.valueOf(it) } catch (_: Exception) {} }
+    s.proxySort?.let { try { ui.proxySort = ProxySort.valueOf(it) } catch (_: Exception) {} }
+    s.proxyLine?.let { ui.proxyLine = it }
+    s.proxyExcludeNotSelectable?.let { ui.proxyExcludeNotSelectable = it }
+    s.accessControlSort?.let { try { ui.accessControlSort = AppInfoSort.valueOf(it) } catch (_: Exception) {} }
+    s.accessControlReverse?.let { ui.accessControlReverse = it }
+    s.accessControlSystemApp?.let { ui.accessControlSystemApp = it }
+    s.appNodeSystemApp?.let { ui.appNodeSystemApp = it }
+    // FEATURE-BACKUP-OVERRIDE: restore the whole Persist Override slot
+    // exactly as exported (this is the Override page incl. DNS). A
+    // backup without an override (pre-feature) leaves the current
+    // override untouched — it is never cleared by an import. A failed
+    // decode/patch is reported via overrideFailed, not as a profile
+    // failure, since the profiles themselves did import.
+    var overrideFailed = false
+    manifest.overrideJson?.let { json ->
+        try {
+            val decoded = backupJson.decodeFromString(ConfigurationOverride.serializer(), json)
+            withClash { patchOverride(Clash.OverrideSlot.Persist, decoded) }
+        } catch (_: Exception) {
+            overrideFailed = true
+        }
+    }
     val existingOrder = ui.profileOrder.split(",").filter { it.isNotBlank() }
     val newOrder = manifest.profiles.mapNotNull { mapping[it.oldUuid] }
     ui.profileOrder = (existingOrder + newOrder).distinct().joinToString(",")
     context.sendOverrideChanged()
-    return ImportResult(importedNames, failedNames)
+    return ImportResult(importedNames, failedNames, overrideFailed)
 }
 
 // FEATURE-BACKUP-IMPORT-BG BEGIN: background backup import runner.
@@ -555,6 +674,7 @@ object BackupImportRunner {
                     status = "导入完成",
                     importedNames = result.importedNames,
                     failedNames = result.failedNames,
+                    overrideFailed = result.overrideFailed,
                 )
             } catch (e: Exception) {
                 ui.lastBackupImportResult = formatImportResult(
@@ -576,6 +696,7 @@ object BackupImportRunner {
         importedNames: List<String>,
         failedNames: List<String>,
         error: String? = null,
+        overrideFailed: Boolean = false,
     ): String {
         val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())
         val detail = when {
@@ -588,7 +709,11 @@ object BackupImportRunner {
                     (if (importedNames.isNotEmpty()) "（${importedNames.joinToString("、")}）" else "") +
                     "；失败 ${failedNames.size} 个：${failedNames.joinToString("、")}"
         }
-        return "$time $status$detail"
+        // FEATURE-BACKUP-OVERRIDE: profiles imported but the Override
+        // (DNS etc.) did not restore — say so plainly in the same note
+        // instead of letting a "导入完成" hide it.
+        val overrideNote = if (overrideFailed) "；覆写设置未恢复" else ""
+        return "$time $status$detail$overrideNote"
     }
 }
 // FEATURE-BACKUP-IMPORT-BG END
