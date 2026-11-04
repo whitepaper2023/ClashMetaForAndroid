@@ -126,11 +126,15 @@ class BlockedAppsActivity : BaseActivity<AccessControlDesign>() {
         }
     }
 
+    // FEATURE-SYSTEM-BLOCK BEGIN: the blocklist page always shows system
+    // apps. Roll back by restoring the old `systemApp` filter below (it
+    // hid system apps by default, behind a menu checkbox whose checked
+    // state meant the opposite of its label) and the old FLAG_SYSTEM-only
+    // isSystemApp check.
     private suspend fun loadApps(blocked: Set<String>): List<AppInfo> =
         withContext(Dispatchers.IO) {
             val reverse = uiStore.accessControlReverse
             val sort = uiStore.accessControlSort
-            val systemApp = uiStore.accessControlSystemApp
 
             val base = compareByDescending<AppInfo> { it.packageName in blocked }
             val comparator = if (reverse) base.thenDescending(sort) else base.then(sort)
@@ -146,10 +150,14 @@ class BlockedAppsActivity : BaseActivity<AccessControlDesign>() {
                     it.applicationInfo != null
                 }
                 .filter {
-                    it.requestedPermissions?.contains(INTERNET) == true || it.applicationInfo!!.uid < android.os.Process.FIRST_APPLICATION_UID
-                }
-                .filter {
-                    systemApp || !it.isSystemApp
+                    // User apps still need INTERNET (or a system UID) to
+                    // be worth listing. System apps are listed even
+                    // without a declared INTERNET permission: they can
+                    // still reach the network via system services and
+                    // shared UIDs, and hiding them made them unblockable.
+                    it.isSystemApp ||
+                        it.requestedPermissions?.contains(INTERNET) == true ||
+                        it.applicationInfo!!.uid < android.os.Process.FIRST_APPLICATION_UID
                 }
                 .map {
                     it.toAppInfo(pm)
@@ -160,6 +168,11 @@ class BlockedAppsActivity : BaseActivity<AccessControlDesign>() {
 
     private val PackageInfo.isSystemApp: Boolean
         get() {
-            return applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) != 0
+            // FLAG_SYSTEM alone misses system apps that were updated
+            // after shipping (they carry FLAG_UPDATED_SYSTEM_APP).
+            return applicationInfo?.flags?.and(
+                ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+            ) != 0
         }
+    // FEATURE-SYSTEM-BLOCK END
 }

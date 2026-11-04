@@ -151,6 +151,10 @@ class AccessControlActivity : BaseActivity<AccessControlDesign>() {
 
     private val PackageInfo.isSystemApp: Boolean
         get() {
-            return applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) != 0
+            // FEATURE-SYSTEM-BLOCK: same as the blocklist page -- an
+            // updated system app carries FLAG_UPDATED_SYSTEM_APP.
+            return applicationInfo?.flags?.and(
+                ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+            ) != 0
         }
 }

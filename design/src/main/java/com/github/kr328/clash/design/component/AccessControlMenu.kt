@@ -33,11 +33,17 @@ class AccessControlMenu(
                 requests.trySend(Request.SelectNone)
             R.id.select_invert ->
                 requests.trySend(Request.SelectInvert)
+            // FEATURE-SYSTEM-BLOCK BEGIN: the checkbox now means what its
+            // label says: checked = system apps are shown. Previously it
+            // stored the opposite (!item.isChecked) and the init line
+            // below also inverted it, so a checked "System Apps" item
+            // actually hid system apps.
             R.id.system_apps -> {
-                uiStore.accessControlSystemApp = !item.isChecked
+                uiStore.accessControlSystemApp = item.isChecked
 
                 requests.trySend(Request.ReloadApps)
             }
+            // FEATURE-SYSTEM-BLOCK END
             R.id.name -> {
                 uiStore.accessControlSort = AppInfoSort.Label
 
@@ -89,7 +95,7 @@ class AccessControlMenu(
                 menu.menu.findItem(R.id.update_time).isChecked = true
         }
 
-        menu.menu.findItem(R.id.system_apps).isChecked = !uiStore.accessControlSystemApp
+        menu.menu.findItem(R.id.system_apps).isChecked = uiStore.accessControlSystemApp
         menu.menu.findItem(R.id.reverse).isChecked = uiStore.accessControlReverse
 
         menu.setOnMenuItemClickListener(this)
