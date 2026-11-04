@@ -18,6 +18,10 @@ class AccessControlDesign(
     context: Context,
     uiStore: UiStore,
     private val selected: MutableSet<String>,
+    // FEATURE-SYSTEM-MARK: false on the blocklist page (its toggle is
+    // dead since 2.11.42 lists system apps unconditionally); true
+    // everywhere else, e.g. the VPN access-control page.
+    private val showSystemAppsMenu: Boolean = true,
 ) : Design<AccessControlDesign.Request>(context) {
     enum class Request {
         ReloadApps,
@@ -34,7 +38,7 @@ class AccessControlDesign(
     private val adapter = AppAdapter(context, selected)
 
     private val menu: AccessControlMenu by lazy {
-        AccessControlMenu(context, binding.menuView, uiStore, requests)
+        AccessControlMenu(context, binding.menuView, uiStore, requests, showSystemAppsMenu)
     }
 
     val apps: List<AppInfo>

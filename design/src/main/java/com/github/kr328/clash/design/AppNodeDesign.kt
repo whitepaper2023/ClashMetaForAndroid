@@ -11,8 +11,10 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import com.github.kr328.clash.design.adapter.AppNodeAdapter
+import com.github.kr328.clash.design.component.AppNodeMenu
 import com.github.kr328.clash.design.databinding.DesignAppNodeBinding
 import com.github.kr328.clash.design.model.AppInfo
+import com.github.kr328.clash.design.store.UiStore
 import com.github.kr328.clash.design.util.applyFrom
 import com.github.kr328.clash.design.util.applyLinearAdapter
 import com.github.kr328.clash.design.util.bindAppBarElevation
@@ -23,13 +25,21 @@ import kotlinx.coroutines.withContext
 
 class AppNodeDesign(
     context: Context,
+    uiStore: UiStore,
 ) : Design<AppNodeDesign.Request>(context) {
     sealed class Request {
         data class Pick(val packageName: String) : Request()
+
+        // FEATURE-SYSTEM-MARK: system-apps toggle from the ⋮ menu.
+        data object ToggleSystemApps : Request()
     }
 
     private val binding = DesignAppNodeBinding
         .inflate(context.layoutInflater, context.root, false)
+
+    private val menu: AppNodeMenu by lazy {
+        AppNodeMenu(context, binding.menuView, uiStore, requests)
+    }
 
     private val adapter = AppNodeAdapter(context) { packageName ->
         requests.trySend(Request.Pick(packageName))
@@ -53,6 +63,11 @@ class AppNodeDesign(
         binding.mainList.recyclerList.also {
             it.bindAppBarElevation(binding.activityBarLayout)
             it.applyLinearAdapter(context, adapter)
+        }
+
+        // FEATURE-SYSTEM-MARK: ⋮ menu anchor (new in 2.11.43).
+        binding.menuView.setOnClickListener {
+            menu.show()
         }
 
         adapter.blockedNote = context.getString(R.string.app_node_blocked_first)
