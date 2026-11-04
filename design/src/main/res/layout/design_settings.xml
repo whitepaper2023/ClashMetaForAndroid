@@ -6,6 +6,13 @@
             name="self"
             type="com.github.kr328.clash.design.SettingsDesign" />
 
+        <!-- FEATURE-BACKUP-IMPORT-BG: persistent import result text.
+             Blank = no note shown (see visibility below). -->
+        <variable
+            name="lastImportResult"
+            type="String" />
+
+        <import type="android.view.View" />
         <import type="com.github.kr328.clash.design.SettingsDesign.Request" />
     </data>
 
@@ -63,6 +70,22 @@
                     android:onClick="@{() -> self.request(Request.Backup)}"
                     app:icon="@drawable/ic_baseline_save"
                     app:text="@string/backup" />
+
+                <!-- FEATURE-BACKUP-IMPORT-BG: persistent import result
+                     note. Tapping it clears it; it refreshes on the
+                     next import run and on returning to this page. -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:onClick="@{() -> self.clearLastImportResult()}"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="8dp"
+                    android:text="@{lastImportResult}"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                    android:visibility="@{lastImportResult == null || lastImportResult.isEmpty() ? View.GONE : View.VISIBLE}" />
 
                 <!-- FEATURE-UPDATE: manual update check. Manual only:
                      no launch-time or background check exists. -->
